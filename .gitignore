@@ -1,0 +1,68 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual Environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Application specific
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/processed/*
+!backend/processed/.gitkeep
+backend/results/*
+!backend/results/.gitkeep
+!backend/results/README.md
+backend/static/
+backend/templates/
+*.png
+*.jpg
+*.jpeg
+!frontend/static/images/*.png
+
+# Logs
+*.log
+*.xlsx
+
+# Temporary files
+*.tmp
+temp/
+captured_image.png
+
+# Documentation (keep only README)
+SETUP_INSTRUCTIONS.txt
+INTEGRATION_SUMMARY.txt
+DOCKER_INSTRUCTIONS.md
+*_SUMMARY.md
+*_GUIDE.txt
+
+# Docker
+.env
+.dockerignore
+
+# Models (optional - uncomment if models are large)
+# backend/models/*.pt
+# backend/models/*.pth
+

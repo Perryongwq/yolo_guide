@@ -1,0 +1,12 @@
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+opencv-python==4.8.1.78
+pandas==2.1.3
+ultralytics==8.3.108
+numpy==1.24.3
+openpyxl==3.1.2
+python-dateutil==2.8.2
+torch==2.6.0
+torchvision==0.21
+pyinstaller==6.3.0

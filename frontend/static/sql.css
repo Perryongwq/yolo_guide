@@ -1,0 +1,23 @@
+/* Add to your CSS file */
+.sql-output {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    padding: 16px;
+    border-radius: 4px;
+    font-family: 'Courier New', Consolas, monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 0;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-x: auto;
+}
+
+.sql-output .functions {
+    color: #569CD6; /* Light blue for SQL keywords */
+    font-weight: bold;
+}
+
+.sql-output .normal {
+    color: #9CDCFE; /* Grey-blue for normal text */
+}

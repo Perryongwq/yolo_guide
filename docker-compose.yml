@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ct600-backend
+    ports:
+      - "5000:5000"
+    volumes:
+      # Mount uploads and processed folders for persistence
+      - ./backend/uploads:/app/uploads
+      - ./backend/processed:/app/processed
+      # Mount models if they exist locally
+      - ./backend/models:/app/models
+      # Results folder - saved images organized by machine number
+      - ./backend/results:/app/results
+    environment:
+      - PYTHONUNBUFFERED=1
+    networks:
+      - ct600-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ct600-frontend
+    ports:
+      - "5001:5001"
+    volumes:
+      # Mount static files
+      - ./frontend/static:/app/static
+      - ./frontend/templates:/app/templates
+      - ./frontend/conf:/app/conf
+    environment:
+      - PYTHONUNBUFFERED=1
+    depends_on:
+      - backend
+    networks:
+      - ct600-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  ct600-network:
+    driver: bridge
+
+volumes:
+  backend-uploads:
+  backend-processed:
+  backend-models:
+  results:
+

@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="home" content="Murata Template">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+    <title>{{page}}</title>
+
+    <!-- Add to homescreen for Chrome on Android -->
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <!-- Add to homescreen for Safari on iOS -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="Murata Template">
+    <link rel="apple-touch-icon-precomposed" href="images/ios-desktop.png">
+
+    <!-- Tile icon for Win8 (144x144 + tile color) -->
+    <meta name="msapplication-TileImage" content="images/touch/ms-touch-icon-144x144-precomposed.png">
+    <meta name="msapplication-TileColor" content="#3372DF">
+
+    <link rel="stylesheet" type="text/css" href="/static/styles.css" />
+    <link rel="stylesheet" type="text/css" href="/static/icon.css">
+    <link rel="stylesheet" type="text/css" href="/static/material.css">
+    <link rel="stylesheet" type="text/css" href="/static/googleapis.css">
+    <link rel="stylesheet" type="text/css" href="/static/common.css">
+    <link rel="stylesheet" type="text/css" href="/static/sql.css">
+
+    <!-- Note: JavaScript files need to be added to static directory -->
+    <script type="text/javascript" src="/static/jquery.min.js"></script>
+    <script type="text/javascript" src="/static/moment.min.js"></script>
+    <script src="/static/timedisplay.js"></script>
+    <script src="/static/material.min.js"></script>
+
+    <script src="/static/alerts.js"></script>
+    <script src="/static/sweetalert2.all.min.js"></script>
+    <script src="/static/jquery.validate.js"></script>
+
+  </head>
+  <body>
+    <div class="demo-layout mdl-layout mdl-js-layout mdl-layout--fixed-drawer mdl-layout--fixed-header">
+      <header class="demo-header mdl-layout__header mdl-color--grey-100 mdl-color-text--grey-600">
+        <div class="mdl-layout__header-row">
+          <span class="mdl-layout-title">For Perry</span>
+          <div class="mdl-layout-spacer"></div>
+          <div class="timedisplay">
+            <div class="display-date">
+              <span id="day">day</span>,
+              <span id="daynum">00</span>
+              <span id="month">month</span>
+              <span id="year">0000</span>
+            </div>
+            <div class="display-time"></div>
+          </div>
+          <!-- Hidden token input for JavaScript access -->
+          <input id="tokenID" name="token" type="hidden" value="{{ token }}">
+        </div>
+      </header>
+      <div class="demo-drawer mdl-layout__drawer mdl-color--blue-grey-900 mdl-color-text--blue-grey-50 hide-scrollbar">
+        <header class="demo-drawer-header">
+          <div class="drawer-header-content">
+            <img src="/static/images/slogan_m_red_2.png" class="brand-logo">
+            <div class="demo-avatar-dropdown">
+              <div>
+                <!-- <span>{{payroll}}@murata.com</span> -->
+                <span id="username">{{username}}</span>
+              </div>
+              <div class="mdl-layout-spacer"></div>
+              <button id="accbtn" class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--icon">
+                <i class="material-icons" role="presentation">arrow_drop_down</i>
+                <span class="visuallyhidden">Accounts</span>
+              </button>
+              <ul class="mdl-menu mdl-menu--bottom-right mdl-js-menu mdl-js-ripple-effect" for="accbtn">
+                <li class="mdl-menu__item">
+                  <a class="mdl-navigation__link" href="/logout/{{payroll}}">Logout</a>
+                </li>
+
+                <!-- <li class="mdl-menu__item">info@example.com</li>
+                <li class="mdl-menu__item"><i class="material-icons">add</i>Add another account...</li> -->
+              </ul>
+            </div>
+          </div>
+          <button id="toggleDrawerBtn" class="mdl-button mdl-js-button mdl-button--icon" title="Minimize/Maximize Menu" style="position: absolute; top: 10px; right: 10px;">
+            <i class="material-icons" id="toggleDrawerIcon">chevron_left</i>
+          </button>
+        </header>
+        <nav class="demo-navigation mdl-navigation mdl-color--blue-grey-800">
+          {% for x in sidemenu %}
+                <a class="mdl-navigation__link" href="{{ sidemenu[x]['url'] }}">
+                  <i class="material-icons" role="presentation">{{ sidemenu[x]['icon'] }}</i>{{ sidemenu[x]['title'] }}
+                </a>
+          {% endfor %}
+        </nav>   
+      </div>
+
+
+    <main id="mainclass" class="mdl-layout__content mdl-color--grey-100">
+     
+          <footer class="mdl-mini-footer footer-stick-bottom">
+            <div class="mdl-mini-footer_left-section">
+                <div class="mdl-logo">Copyright © {{year}}. For Perry</div>
+                <ul class="mdl-mini-footer__link-list">
+                <li>Support by SP5143</li>
+                </ul>
+            </div>
+        </footer> 
+      </main>
+
+      
+    
+
+</body>
+  
+</html>
+
+<script>
+
+  var endpoint = '{{endpoint}}';
+  var payroll = '{{payroll}}';
+  console.log(endpoint);
+  
+  // Drawer toggle functionality
+  document.addEventListener('DOMContentLoaded', function() {
+    const drawer = document.querySelector('.mdl-layout__drawer');
+    const toggleBtn = document.getElementById('toggleDrawerBtn');
+    const toggleIcon = document.getElementById('toggleDrawerIcon');
+
+    let minimized = false;
+
+    // On page load - check localStorage first
+    if (localStorage.getItem('drawerMinimized') === 'true') {
+        minimized = true;
+        drawer.classList.add('minimized');
+        document.body.classList.add('drawer-minimized');
+        toggleIcon.textContent = 'chevron_right';
+    }
+
+    // Add click event listener
+    toggleBtn.addEventListener('click', function() {
+        minimized = !minimized;
+        drawer.classList.toggle('minimized', minimized);
+        document.body.classList.toggle('drawer-minimized', minimized);
+        toggleIcon.textContent = minimized ? 'chevron_right' : 'chevron_left';
+        localStorage.setItem('drawerMinimized', minimized);
+    });
+
+    // Upgrade MDL components
+    componentHandler.upgradeDom();
+
+    // Extra functions
+    $(document).ready(function() {
+      $("#inputInfoDiv").hide();
+      $("#customerDiv").hide();
+    });
+  });
+
+
+</script>

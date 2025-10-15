@@ -1,0 +1,799 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="home" content="Murata Template">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+    <title>{{page}}</title>
+
+    <!-- Add to homescreen for Chrome on Android -->
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <!-- Add to homescreen for Safari on iOS -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="Murata Template">
+
+    <link rel="stylesheet" type="text/css" href="/static/styles.css" />
+    <link rel="stylesheet" type="text/css" href="/static/icon.css">
+    <link rel="stylesheet" type="text/css" href="/static/material.css">
+    <link rel="stylesheet" type="text/css" href="/static/googleapis.css">
+    <link rel="stylesheet" type="text/css" href="/static/common.css">
+    <link rel="stylesheet" type="text/css" href="/static/sql.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css">
+
+    <!-- Note: JavaScript files need to be added to static directory -->
+    <script type="text/javascript" src="/static/jquery.min.js"></script>
+    <script type="text/javascript" src="/static/moment.min.js"></script>
+    <script src="/static/timedisplay.js"></script>
+    <script src="/static/material.min.js"></script>
+    <script src="/static/alerts.js"></script>
+    <script src="/static/sweetalert2.all.min.js"></script>
+    <script src="/static/jquery.validate.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
+
+    <style>
+        .vision-container {
+            padding: 20px;
+            background-color: #fff;
+            margin: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .vision-title {
+            font-size: 2rem;
+            color: #FFA500;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .form-section {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-group label {
+            font-weight: bold;
+            min-width: 150px;
+        }
+
+        .form-group select,
+        .form-group input[type="file"],
+        .form-group input[type="text"] {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 300px;
+        }
+
+        .vision-button {
+            padding: 10px 20px;
+            font-size: 1rem;
+            cursor: pointer;
+            border: none;
+            border-radius: 5px;
+            background-color: #007bff;
+            color: white;
+            transition: background-color 0.3s;
+        }
+
+        .vision-button:hover {
+            background-color: #0056b3;
+        }
+
+        .vision-button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .image-section {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .image-section h3 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        #live-stream {
+            width: 100%;
+            max-width: 1600px;
+            height: auto;
+            border: 2px solid #007bff;
+            border-radius: 4px;
+        }
+
+        #image-to-crop,
+        #processed-image {
+            max-width: 100%;
+            height: auto;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+        }
+
+        #align-canvas,
+        #manual-draw-canvas {
+            border: 2px solid #007bff;
+            border-radius: 4px;
+            background-color: #f5f5f5;
+            max-width: 100%;
+        }
+
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.8);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            text-align: center;
+            max-width: 500px;
+        }
+
+        .modal-content h2 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .modal-content p {
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+    </style>
+
+  </head>
+  <body>
+    <div class="demo-layout mdl-layout mdl-js-layout mdl-layout--fixed-drawer mdl-layout--fixed-header">
+      <header class="demo-header mdl-layout__header mdl-color--grey-100 mdl-color-text--grey-600">
+        <div class="mdl-layout__header-row">
+          <span class="mdl-layout-title">CT600 Vision Inspection</span>
+          <div class="mdl-layout-spacer"></div>
+          <div class="timedisplay">
+            <div class="display-date">
+              <span id="day">day</span>,
+              <span id="daynum">00</span>
+              <span id="month">month</span>
+              <span id="year">0000</span>
+            </div>
+            <div class="display-time"></div>
+          </div>
+          <input id="tokenID" name="token" type="hidden" value="{{ token }}">
+        </div>
+      </header>
+
+      <div class="demo-drawer mdl-layout__drawer mdl-color--blue-grey-900 mdl-color-text--blue-grey-50 hide-scrollbar">
+        <header class="demo-drawer-header">
+          <div class="drawer-header-content">
+            <img src="/static/images/slogan_m_red_2.png" class="brand-logo">
+            <div class="demo-avatar-dropdown">
+              <div>
+                <span id="username">{{username}}</span>
+              </div>
+              <div class="mdl-layout-spacer"></div>
+              <button id="accbtn" class="mdl-button mdl-js-button mdl-js-ripple-effect mdl-button--icon">
+                <i class="material-icons" role="presentation">arrow_drop_down</i>
+                <span class="visuallyhidden">Accounts</span>
+              </button>
+              <ul class="mdl-menu mdl-menu--bottom-right mdl-js-menu mdl-js-ripple-effect" for="accbtn">
+                <li class="mdl-menu__item">
+                  <a class="mdl-navigation__link" href="/logout/{{payroll}}">Logout</a>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <button id="toggleDrawerBtn" class="mdl-button mdl-js-button mdl-button--icon" title="Minimize/Maximize Menu" style="position: absolute; top: 10px; right: 10px;">
+            <i class="material-icons" id="toggleDrawerIcon">chevron_left</i>
+          </button>
+        </header>
+        <nav class="demo-navigation mdl-navigation mdl-color--blue-grey-800">
+          {% for x in sidemenu %}
+                <a class="mdl-navigation__link" href="{{ sidemenu[x]['url'] }}">
+                  <i class="material-icons" role="presentation">{{ sidemenu[x]['icon'] }}</i>{{ sidemenu[x]['title'] }}
+                </a>
+          {% endfor %}
+        </nav>   
+      </div>
+
+      <main id="mainclass" class="mdl-layout__content mdl-color--grey-100">
+        <div class="vision-container">
+          <h2 class="vision-title">CT600 Guide Vision System</h2>
+          
+          <!-- Form for Uploading Image -->
+          <div class="form-section">
+            <div class="form-group">
+              <label for="item_type">Select Item Type:</label>
+              <select id="item_type" name="item_type">
+                <option value="03type">03 Type</option>
+                <option value="32type">32 Type</option>
+                <option value="15type" selected>15 Type</option>
+              </select>
+            </div>
+            
+            <div class="form-group">
+              <label for="image-upload">Upload Image:</label>
+              <input type="file" id="image-upload" name="image" accept="image/*">
+            </div>
+
+            <div class="form-group">
+              <button id="connect-camera" type="button" class="vision-button">Connect to Camera</button>
+            </div>
+          </div>
+
+          <!-- Live Stream Section -->
+          <div id="camera-stream-section" class="image-section" style="display: none;">
+            <h3>Camera Live Stream:</h3>
+            <img id="live-stream" src="" alt="Live Stream">
+            <br><br>
+            <button id="capture-image" type="button" class="vision-button">Capture Image</button>
+          </div>
+
+          <!-- Image Cropping Section -->
+          <div id="image-crop-section" class="image-section" style="display: none;">
+            <h3>Crop Image:</h3>
+            <div>
+              <img id="image-to-crop" alt="Image to Crop">
+            </div>
+            <br>
+            <button id="complete-crop" type="button" class="vision-button">Complete Crop</button>
+          </div>
+
+          <!-- Image Alignment Section -->
+          <div id="image-align-section" class="image-section" style="display: none;">
+            <h3>Align Image:</h3>
+            <canvas id="align-canvas"></canvas><br><br>
+            <div class="button-group">
+              <button id="rotate-left" type="button" class="vision-button">Rotate Left</button>
+              <button id="rotate-right" type="button" class="vision-button">Rotate Right</button>
+              <button id="submit-image" type="button" class="vision-button">Submit</button>
+            </div>
+          </div>
+
+          <!-- Manual Drawing Section -->
+          <div id="manual-draw-section" class="image-section" style="display: none;">
+            <h3>Draw Bottom Edges (15mm)</h3>
+            <canvas id="manual-draw-canvas" width="1600" height="900"></canvas><br><br>
+            <button id="submit-manual-lines" class="vision-button">Submit Lines</button>
+          </div>
+
+          <!-- Display the Processed Image -->
+          <div id="processed-image-section" class="image-section" style="display: none;">
+            <h3>Processed Image:</h3>
+            <img id="processed-image" src="" alt="Processed Image"><br><br>
+            
+            <div class="form-group" style="justify-content: center;">
+              <input type="text" id="machineNumber" placeholder="Enter Machine Number (scan or type)" style="width: 400px;">
+            </div>
+            <br>
+            <button id="save-image" type="button" class="vision-button">Save Result</button>
+          </div>
+        </div>
+
+        <!-- Fallback Option Modal -->
+        <div id="fallback-modal" class="modal-overlay">
+          <div class="modal-content">
+            <h2 id="fallback-modal-title">Edges Not Detected</h2>
+            <p id="fallback-modal-message">Choose how you want to proceed:</p>
+            <div class="button-group">
+              <button onclick="handleManualDraw()" class="vision-button">1. Draw Edges Manually</button>
+              <button onclick="handleAutoFallback()" class="vision-button">2. Use Auto Fallback</button>
+            </div>
+          </div>
+        </div>
+
+        <footer class="mdl-mini-footer footer-stick-bottom">
+          <div class="mdl-mini-footer_left-section">
+            <div class="mdl-logo">Copyright © {{year}}. For Perry</div>
+            <ul class="mdl-mini-footer__link-list">
+              <li>Support by SP5143</li>
+            </ul>
+          </div>
+        </footer> 
+      </main>
+    </div>
+
+<script>
+  const BACKEND_API = "{{ backend_api }}";
+  const imageUpload = document.getElementById('image-upload');
+  const imageToCrop = document.getElementById('image-to-crop');
+  const imageCropSection = document.getElementById('image-crop-section');
+  const completeCropButton = document.getElementById('complete-crop');
+  const imageAlignSection = document.getElementById('image-align-section');
+  const alignCanvas = document.getElementById('align-canvas');
+  const processedImageSection = document.getElementById('processed-image-section');
+  const processedImage = document.getElementById('processed-image');
+  const cameraStreamSection = document.getElementById('camera-stream-section');
+  const liveStream = document.getElementById('live-stream');
+  const connectCameraButton = document.getElementById('connect-camera');
+  const captureImageButton = document.getElementById('capture-image');
+  
+  let cropper;
+  let alignContext = alignCanvas.getContext('2d');
+  let croppedImage;
+  let alignRotation = 0;
+  let latestAlignedImageData = "";
+
+  // Image compression function
+  function compressImage(file, maxWidthHeight, quality, callback) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const img = new Image();
+      img.src = e.target.result;
+      
+      img.onload = function() {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > height && width > maxWidthHeight) {
+          height *= maxWidthHeight / width;
+          width = maxWidthHeight;
+        } else if (height > maxWidthHeight) {
+          width *= maxWidthHeight / height;
+          height = maxWidthHeight;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        const dataUrl = canvas.toDataURL('image/jpeg', quality || 0.7);
+        callback(dataUrl);
+      };
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // Upload and display image for cropping
+  imageUpload.addEventListener("change", (event) => {
+    processedImageSection.style.display = "none";
+    processedImage.src = "";
+    const file = event.target.files[0];
+    if (file) {
+      compressImage(file, 1920, 0.8, function(compressedDataUrl) {
+        imageToCrop.src = compressedDataUrl;
+        imageCropSection.style.display = "block";
+
+        if (cropper) cropper.destroy();
+        cropper = new Cropper(imageToCrop, {
+          aspectRatio: 16 / 9,
+          viewMode: 1,
+          autoCropArea: 1,
+          responsive: true,
+        });
+      });
+    }
+  });
+
+  // Connect to Camera
+  connectCameraButton.addEventListener('click', () => {
+    fetch(`${BACKEND_API}/reconnect_camera`, { method: "POST" })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          liveStream.src = `${BACKEND_API}/video_feed`;
+          cameraStreamSection.style.display = "block";
+        } else {
+          alert("Failed to reconnect the camera.");
+        }
+      })
+      .catch(error => console.error("Error reconnecting camera:", error));
+  });
+
+  // Capture Image
+  captureImageButton.addEventListener("click", () => {
+    // Disable button to prevent double-clicks
+    captureImageButton.disabled = true;
+    captureImageButton.textContent = "Capturing...";
+    
+    fetch(`${BACKEND_API}/capture`, { method: "POST" })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        console.log("Capture response:", data);
+        
+        if (data.success && data.proceed_to_crop) {
+          // Hide camera stream section after capture
+          cameraStreamSection.style.display = "none";
+          liveStream.src = "";
+          
+          // Add a small delay to ensure file is ready
+          setTimeout(() => {
+            const timestamp = Date.now();
+            const capturedImagePath = `${BACKEND_API}${data.image_path}?t=${timestamp}`;
+            console.log("Loading image from:", capturedImagePath);
+            
+            const capturedImg = new Image();
+            capturedImg.crossOrigin = "anonymous";
+            
+            capturedImg.onload = () => {
+              console.log("Image loaded successfully, size:", capturedImg.width, "x", capturedImg.height);
+              
+              const resizeCanvas = document.createElement("canvas");
+              const resizeContext = resizeCanvas.getContext("2d");
+              const standardWidth = 1920;
+              const standardHeight = 1080;
+              resizeCanvas.width = standardWidth;
+              resizeCanvas.height = standardHeight;
+
+              resizeContext.drawImage(capturedImg, 0, 0, standardWidth, standardHeight);
+
+              imageToCrop.src = resizeCanvas.toDataURL();
+              imageCropSection.style.display = "block";
+
+              if (cropper) cropper.destroy();
+              cropper = new Cropper(imageToCrop, {
+                aspectRatio: 16 / 9,
+                viewMode: 1,
+                autoCropArea: 1,
+                responsive: true,
+              });
+              
+              // Re-enable button
+              captureImageButton.disabled = false;
+              captureImageButton.textContent = "Capture Image";
+            };
+            
+            capturedImg.onerror = (error) => {
+              console.error("Failed to load image:", error);
+              alert("❌ Failed to load captured image. Please try again.");
+              cameraStreamSection.style.display = "block";
+              liveStream.src = `${BACKEND_API}/video_feed`;
+              captureImageButton.disabled = false;
+              captureImageButton.textContent = "Capture Image";
+            };
+            
+            capturedImg.src = capturedImagePath;
+          }, 200); // 200ms delay to ensure file is ready
+        } else {
+          alert("❌ Failed to capture image. Please try again.");
+          captureImageButton.disabled = false;
+          captureImageButton.textContent = "Capture Image";
+        }
+      })
+      .catch(error => {
+        console.error("Capture error:", error);
+        alert("❌ Error occurred during image capture: " + error.message);
+        captureImageButton.disabled = false;
+        captureImageButton.textContent = "Capture Image";
+      });
+  });
+
+  // Complete cropping
+  completeCropButton.addEventListener('click', () => {
+    if (!cropper) {
+      alert("Cropper not initialized. Please try again.");
+      return;
+    }
+
+    croppedImage = cropper.getCroppedCanvas({
+      width: imageToCrop.naturalWidth,
+      height: imageToCrop.naturalHeight,
+    });
+
+    cropper.destroy();
+    cropper = null;
+
+    imageCropSection.style.display = 'none';
+
+    alignCanvas.width = croppedImage.width;
+    alignCanvas.height = croppedImage.height;
+
+    alignContext.drawImage(croppedImage, 0, 0);
+
+    imageAlignSection.style.display = 'block';
+  });
+
+  // Rotate left by 2 degrees
+  document.getElementById('rotate-left').addEventListener('click', () => {
+    alignRotation -= 2;
+    applyRotation();
+  });
+
+  // Rotate right by 2 degrees
+  document.getElementById('rotate-right').addEventListener('click', () => {
+    alignRotation += 2;
+    applyRotation();
+  });
+
+  // Apply rotation
+  function applyRotation() {
+    const radians = (alignRotation * Math.PI) / 180;
+    alignContext.clearRect(0, 0, alignCanvas.width, alignCanvas.height);
+
+    alignContext.save();
+    alignContext.translate(alignCanvas.width / 2, alignCanvas.height / 2);
+    alignContext.rotate(radians);
+    alignContext.drawImage(croppedImage, -croppedImage.width / 2, -croppedImage.height / 2);
+    alignContext.restore();
+  }
+
+  // Submit aligned image
+  document.getElementById('submit-image').addEventListener('click', () => {
+    const alignedImage = alignCanvas.toDataURL();
+    latestAlignedImageData = alignedImage;
+    const itemType = document.querySelector('select[name="item_type"]').value;
+
+    fetch(`${BACKEND_API}/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        aligned_image: alignedImage,
+        item_type: itemType
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.show_fallback_modal) {
+        const title = data.reason || "Edges Not Detected";
+        document.getElementById("fallback-modal-title").textContent = title;
+        document.getElementById("fallback-modal-message").textContent = "Choose how you want to proceed:";
+        document.getElementById("fallback-modal").style.display = "flex";
+      } else if (data.show_manual_draw_modal) {
+        document.getElementById("fallback-modal-title").textContent = data.reason || "Manual Mode Required";
+        document.getElementById("fallback-modal").style.display = "flex";
+      } else if (data.processed_image_url) {
+        processedImage.src = `${BACKEND_API}${data.processed_image_url}`;
+        imageAlignSection.style.display = 'none';
+        processedImageSection.style.display = 'block';
+      } else {
+        alert("Error processing the image. Please try again.");
+      }
+    })
+    .catch(error => {
+      console.error("Error:", error);
+      alert("An error occurred while processing the image.");
+    });
+  });
+
+  // Manual draw functions
+  const manualCanvas = document.getElementById("manual-draw-canvas");
+  const manualCtx = manualCanvas.getContext("2d");
+  let manualLines = [];
+  let isDrawing = false;
+  let startX = 0;
+  let startY = 0;
+  let currentLineColor = "blue";
+
+  function handleManualDraw() {
+    if (!latestAlignedImageData || !latestAlignedImageData.startsWith("data:image")) {
+      alert("Aligned image not available. Please retry the process.");
+      return;
+    }
+
+    const image = new Image();
+    image.src = latestAlignedImageData;
+
+    image.onload = () => {
+      manualCanvas.width = image.width;
+      manualCanvas.height = image.height;
+      manualCtx.clearRect(0, 0, manualCanvas.width, manualCanvas.height);
+      manualCtx.drawImage(image, 0, 0);
+    };
+
+    manualLines = [];
+    currentLineColor = "blue";
+
+    document.getElementById("fallback-modal").style.display = "none";
+    imageAlignSection.style.display = "none";
+    document.getElementById("manual-draw-section").style.display = "block";
+  }
+
+  function handleAutoFallback() {
+    document.getElementById("fallback-modal").style.display = "none";
+
+    if (!latestAlignedImageData || !latestAlignedImageData.startsWith("data:image")) {
+      alert("Aligned image not available for auto fallback.");
+      return;
+    }
+
+    const itemType = document.getElementById("item_type").value;
+
+    fetch(`${BACKEND_API}/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        aligned_image: latestAlignedImageData,
+        item_type: itemType
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.show_fallback_modal) {
+        const title = data.reason || "Edges Not Detected";
+        document.getElementById("fallback-modal-title").textContent = title;
+        document.getElementById("fallback-modal").style.display = "flex";
+      } else if (data.processed_image_url) {
+        processedImage.src = `${BACKEND_API}${data.processed_image_url}`;
+        imageAlignSection.style.display = 'none';
+        processedImageSection.style.display = 'block';
+      } else {
+        alert("Error processing the image. Please try again.");
+      }
+    });
+  }
+
+  manualCanvas.addEventListener("mousedown", (e) => {
+    if (manualLines.length >= 2) return;
+    isDrawing = true;
+    const rect = manualCanvas.getBoundingClientRect();
+    startX = e.clientX - rect.left;
+    startY = e.clientY - rect.top;
+  });
+
+  manualCanvas.addEventListener("mouseup", (e) => {
+    if (!isDrawing || manualLines.length >= 2) return;
+    isDrawing = false;
+    const rect = manualCanvas.getBoundingClientRect();
+    const endX = e.clientX - rect.left;
+    const endY = e.clientY - rect.top;
+
+    manualCtx.beginPath();
+    manualCtx.moveTo(startX, startY);
+    manualCtx.lineTo(endX, endY);
+    manualCtx.strokeStyle = currentLineColor;
+    manualCtx.lineWidth = 2;
+    manualCtx.stroke();
+
+    manualLines.push({ x1: startX, y1: startY, x2: endX, y2: endY });
+
+    currentLineColor = manualLines.length === 1 ? "yellow" : currentLineColor;
+  });
+
+  document.getElementById("submit-manual-lines").addEventListener("click", () => {
+    if (manualLines.length !== 2) {
+      alert("Please draw exactly two lines.");
+      return;
+    }
+
+    const itemType = document.getElementById("item_type").value;
+
+    fetch(`${BACKEND_API}/manual-submit`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        aligned_image: latestAlignedImageData,
+        manual_lines: manualLines,
+        item_type: itemType
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.processed_image_url) {
+        document.getElementById("manual-draw-section").style.display = "none";
+        processedImage.src = `${BACKEND_API}${data.processed_image_url}`;
+        processedImageSection.style.display = "block";
+      } else {
+        alert("Error processing manual lines. Try again.");
+      }
+    })
+    .catch(err => {
+      console.error("Manual submit failed:", err);
+      alert("Something went wrong during manual line submission.");
+    });
+  });
+
+  // Save image
+  document.getElementById("save-image").addEventListener("click", () => {
+    const machineNumber = document.getElementById("machineNumber").value;
+
+    if (!machineNumber) {
+      alert("Machine number is required to save the image.");
+      return;
+    }
+
+    const imgElement = document.getElementById("processed-image");
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.src = imgElement.src;
+
+    img.onload = () => {
+      const tempCanvas = document.createElement("canvas");
+      tempCanvas.width = img.width;
+      tempCanvas.height = img.height;
+
+      const ctx = tempCanvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+
+      const base64Image = tempCanvas.toDataURL("image/png");
+
+      fetch(`${BACKEND_API}/save-image`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image_url: base64Image,
+          machine_number: machineNumber.trim()
+        })
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          alert("✅ Image saved successfully!");
+          // Reset form
+          document.getElementById("machineNumber").value = "";
+          processedImageSection.style.display = "none";
+          imageAlignSection.style.display = "none";
+        } else {
+          alert("❌ Failed to save image.");
+        }
+      })
+      .catch(error => {
+        console.error("Save error:", error);
+        alert("❌ Error occurred while saving the image.");
+      });
+    };
+
+    img.onerror = () => {
+      alert("❌ Failed to load image for saving.");
+    };
+  });
+
+  // Drawer toggle functionality
+  document.addEventListener('DOMContentLoaded', function() {
+    const drawer = document.querySelector('.mdl-layout__drawer');
+    const toggleBtn = document.getElementById('toggleDrawerBtn');
+    const toggleIcon = document.getElementById('toggleDrawerIcon');
+
+    let minimized = false;
+
+    if (localStorage.getItem('drawerMinimized') === 'true') {
+      minimized = true;
+      drawer.classList.add('minimized');
+      document.body.classList.add('drawer-minimized');
+      toggleIcon.textContent = 'chevron_right';
+    }
+
+    toggleBtn.addEventListener('click', function() {
+      minimized = !minimized;
+      drawer.classList.toggle('minimized', minimized);
+      document.body.classList.toggle('drawer-minimized', minimized);
+      toggleIcon.textContent = minimized ? 'chevron_right' : 'chevron_left';
+      localStorage.setItem('drawerMinimized', minimized);
+    });
+
+    componentHandler.upgradeDom();
+  });
+</script>
+</body>
+</html>
+

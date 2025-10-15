@@ -1,0 +1,9 @@
+# This file ensures the results directory is tracked by git
+# Results are organized by machine number:
+# results/
+#   ct600/
+#     ct600_20250115_143022.png
+#     ct600_20250115_144533.png
+#   ct601/
+#     ct601_20250115_150012.png
+

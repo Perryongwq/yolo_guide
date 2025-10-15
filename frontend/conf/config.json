@@ -1,0 +1,17 @@
+{
+    "SSO_PROXY" : "https://163.50.34.41:8080/login?next=",
+    "AUTHTOKEN" : "7ddde2f5395ddb9110f4410023ac053acd06ce37174a6adda9d34cd31e0d6457",
+    "AUTHTOKENS" : [
+        "c5287e9c0ae06788b48723b3944fdeede06dc74672075b9d4c1dd20c80620ed5",
+        "7ddde2f5395ddb9110f4410023ac053acd06ce37174a6adda9d34cd31e0d6457",
+        "940f6c850f2a65b1fca183d8ea51d0a2dbed52dfd3463c25f550c7199ad050c3",
+        "0987a5d6337c24b5a14501afc298645dca619c7789b461df82ef54a31713bbcf",
+        "23dedbe19516254ecfd63280c9fc49bce6a0ef173f678bddcc0223e29b7d466f"
+      ],
+    "JWEKEY" : "54fef7aa5126e47cc5c8af8a70ded92b",
+    "JWT_LIFESPAN" : 3600,
+    "ALGORITHM" : "dir",
+    "ENCRYPTION":"A256GCM",
+    "ICECREAMMODE" : "TRUE",
+    "ENDPOINT" : "http://localhost:5001/"
+}

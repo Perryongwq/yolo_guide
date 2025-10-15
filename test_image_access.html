@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Image Access</title>
+</head>
+<body>
+    <h1>Test Captured Image Access</h1>
+    <p>This page tests if the captured image can be loaded from the backend.</p>
+    
+    <button onclick="testImageLoad()">Test Load Image</button>
+    <div id="result"></div>
+    <br><br>
+    <img id="testImage" style="max-width: 800px; border: 2px solid #ccc;">
+    
+    <script>
+        function testImageLoad() {
+            const BACKEND_API = "http://localhost:5000";
+            const resultDiv = document.getElementById('result');
+            const testImage = document.getElementById('testImage');
+            
+            resultDiv.innerHTML = "Loading...";
+            
+            const timestamp = Date.now();
+            const imagePath = `${BACKEND_API}/uploads/captured_image.png?t=${timestamp}`;
+            
+            console.log("Testing image from:", imagePath);
+            
+            const img = new Image();
+            img.crossOrigin = "anonymous";
+            
+            img.onload = function() {
+                resultDiv.innerHTML = `<span style="color: green;">✅ Success! Image loaded: ${img.width}x${img.height}</span>`;
+                testImage.src = imagePath;
+            };
+            
+            img.onerror = function(error) {
+                resultDiv.innerHTML = `<span style="color: red;">❌ Failed to load image</span>`;
+                console.error("Error:", error);
+            };
+            
+            img.src = imagePath;
+        }
+    </script>
+</body>
+</html>
+
