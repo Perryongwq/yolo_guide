@@ -4,11 +4,6 @@
             "title": "CT600 Vision Inspection",
             "url": "/vision-inspection",
             "icon": "camera_alt"
-        },
-        "home": {
-            "title": "Home",
-            "url": "/callback",
-            "icon": "home"
         }
     }
 }
