@@ -8,13 +8,14 @@ from typing import AsyncGenerator
 from contextlib import asynccontextmanager
 from functools import lru_cache
 from pathlib import Path
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request, Depends, Form
 from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.exceptions import HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
+from starlette.middleware.sessions import SessionMiddleware
 import uvicorn
 from configreader.configreader import return_config
 from icecream import ic
@@ -95,6 +96,13 @@ app = FastAPI(
     redoc_url=None,
     default_response_class=ORJSONResponse,
     swagger_ui_parameters={"syntaxHighlight": False},
+)
+
+# Add session middleware (must be added before CORS)
+app.add_middleware(
+    SessionMiddleware, 
+    secret_key=secrets.token_urlsafe(32),
+    max_age=3600 * 24  # Session expires after 24 hours
 )
 
 # Add CORS middleware
@@ -229,36 +237,101 @@ async def callback(
     )
 
 
-@app.get("/logout/{payroll}", response_class=HTMLResponse)
-async def logoutscreen(
+@app.get("/logout/{payroll}")
+async def logoutscreen_with_payroll(
     request: Request,
     payroll: str,
     config: dict = Depends(get_config),
     ic=Depends(get_ic),
 ):
-    """Logout route - clears user session"""
-    logger.info(f"User {payroll} logging out")
-    ic(f"Logout requested for: {payroll}")
+    """Logout route (with payroll) - clears user session and redirects to login"""
+    username = request.session.get("username", "Unknown")
+    logger.info(f"User {username} ({payroll}) logging out")
+    ic(f"Logout requested for: {username} ({payroll})")
+    
+    # Clear session
+    request.session.clear()
 
+    # Redirect to login page
+    return RedirectResponse(url="/login", status_code=303)
+
+
+@app.get("/logout")
+async def logout(
+    request: Request,
+    config: dict = Depends(get_config),
+    ic=Depends(get_ic),
+):
+    """Simple logout route - clears user session and redirects to login"""
+    username = request.session.get("username", "Unknown")
+    logger.info(f"User {username} logging out")
+    ic(f"Logout requested for: {username}")
+    
+    # Clear session
+    request.session.clear()
+
+    # Redirect to login page
+    return RedirectResponse(url="/login", status_code=303)
+
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(
+    request: Request, config: dict = Depends(get_config), ic=Depends(get_ic)
+):
+    """Display login page"""
     return templates.TemplateResponse(
-        "logout.html",
+        "login.html",
         {
             "request": request,
-            "endpoint": config.get("ENDPOINT", "/"),
             "year": datetime.now().year,
         },
     )
+
+
+@app.post("/login", response_class=HTMLResponse)
+async def login_submit(
+    request: Request,
+    username: str = Form(...),
+    config: dict = Depends(get_config),
+    ic=Depends(get_ic),
+):
+    """Handle login form submission"""
+    if not username or len(username.strip()) < 2:
+        return templates.TemplateResponse(
+            "login.html",
+            {
+                "request": request,
+                "year": datetime.now().year,
+                "error": "Please enter a valid name (at least 2 characters)",
+            },
+        )
+    
+    # Store username in session
+    request.session["username"] = username.strip()
+    request.session["payroll"] = "N/A"
+    
+    logger.info(f"User logged in: {username}")
+    ic(f"Login successful: {username}")
+    
+    # Redirect to vision inspection page
+    return RedirectResponse(url="/vision-inspection", status_code=303)
 
 
 @app.get("/vision-inspection", response_class=HTMLResponse)
 async def vision_inspection(
     request: Request, config: dict = Depends(get_config), ic=Depends(get_ic)
 ):
-    """Vision inspection page"""
-    # Get user info from query params or session if available
-    username = request.query_params.get("username", "User")
-    payroll = request.query_params.get("payroll", "N/A")
-
+    """Vision inspection page - requires login"""
+    # Check if user is logged in
+    username = request.session.get("username")
+    
+    if not username:
+        # Redirect to login page if not logged in
+        logger.warning("Unauthorized access attempt to vision inspection page")
+        return RedirectResponse(url="/login", status_code=303)
+    
+    payroll = request.session.get("payroll", "N/A")
+    
     logger.info(f"Vision inspection page accessed by: {username}")
 
     return templates.TemplateResponse(
@@ -288,4 +361,4 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="stat
 logger.info(f"Static files mounted from: {BASE_DIR / 'static'}")
 
 if __name__ == "__main__":
-    uvicorn.run("app:app", host="0.0.0.0", port=5001, reload=False, access_log=True)
+    uvicorn.run("app:app", host="0.0.0.0", port=5001, reload=True, access_log=True)

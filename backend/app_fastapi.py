@@ -995,4 +995,4 @@ async def index_post(request: Request):
 
 if __name__ == "__main__":
     logger.info("Starting FastAPI application...")
-    uvicorn.run(app, host="localhost", port=5000, log_level="info")
+    uvicorn.run(app, host="localhost", port=5000, log_level="info", reload=True)

@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+    <title>Login - CT600 Vision System</title>
+
+    <link rel="stylesheet" type="text/css" href="/static/styles.css" />
+    <link rel="stylesheet" type="text/css" href="/static/icon.css">
+    <link rel="stylesheet" type="text/css" href="/static/material.css">
+    <link rel="stylesheet" type="text/css" href="/static/googleapis.css">
+    <link rel="stylesheet" type="text/css" href="/static/common.css">
+
+    <script type="text/javascript" src="/static/jquery.min.js"></script>
+    <script src="/static/material.min.js"></script>
+    <script src="/static/sweetalert2.all.min.js"></script>
+    <script src="/static/jquery.validate.js"></script>
+
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif;
+        }
+
+        .login-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            padding: 50px 40px;
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+        }
+
+        .login-logo {
+            max-width: 250px;
+            margin-bottom: 30px;
+        }
+
+        .login-title {
+            font-size: 2rem;
+            color: #333;
+            margin-bottom: 10px;
+            font-weight: 500;
+        }
+
+        .login-subtitle {
+            font-size: 1rem;
+            color: #666;
+            margin-bottom: 40px;
+        }
+
+        .login-form {
+            width: 100%;
+        }
+
+        .form-field {
+            width: 100%;
+            margin-bottom: 30px;
+            position: relative;
+        }
+
+        .form-field input {
+            width: 100%;
+            padding: 15px 20px;
+            font-size: 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            outline: none;
+            transition: all 0.3s ease;
+            box-sizing: border-box;
+        }
+
+        .form-field input:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .form-field label {
+            position: absolute;
+            left: 20px;
+            top: 15px;
+            color: #999;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            pointer-events: none;
+            background: white;
+            padding: 0 5px;
+        }
+
+        .form-field input:focus + label,
+        .form-field input:not(:placeholder-shown) + label {
+            top: -10px;
+            font-size: 0.85rem;
+            color: #667eea;
+        }
+
+        .login-button {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: white;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .login-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .login-button:active {
+            transform: translateY(0);
+        }
+
+        .login-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .error-message {
+            color: #d32f2f;
+            font-size: 0.9rem;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .footer-text {
+            margin-top: 30px;
+            color: #999;
+            font-size: 0.85rem;
+        }
+
+        /* Material Design Icon */
+        .input-icon {
+            position: absolute;
+            right: 15px;
+            top: 15px;
+            color: #999;
+        }
+    </style>
+  </head>
+  <body>
+    <div class="login-container">
+      <img src="/static/images/slogan_m_red_2.png" class="login-logo" alt="Murata Logo">
+      
+      <h1 class="login-title">CT600 Vision System</h1>
+      <p class="login-subtitle">Please enter Murata ID to continue</p>
+
+      <form id="loginForm" class="login-form" method="POST" action="/login">
+        <div class="form-field">
+          <input 
+            type="text" 
+            id="username" 
+            name="username" 
+            placeholder=" "
+            required
+            autocomplete="off"
+            autofocus
+          >
+          <label for="username">Murata ID</label>
+          <i class="material-icons input-icon">person</i>
+        </div>
+
+        <button type="submit" class="login-button" id="loginButton">
+          Continue to Vision Inspection
+        </button>
+
+        <p class="error-message" id="errorMessage"></p>
+      </form>
+
+      <p class="footer-text">
+        Copyright © {{year}}. MES CT600 Vision System<br>
+        Support by SP5143
+      </p>
+    </div>
+
+    <script>
+      $(document).ready(function() {
+        // Form validation
+        $("#loginForm").validate({
+          rules: {
+            username: {
+              required: true,
+              minlength: 2
+            }
+          },
+          messages: {
+            username: {
+              required: "Please enter Murata ID",
+              minlength: "Name must be at least 2 characters"
+            }
+          },
+          errorPlacement: function(error, element) {
+            $("#errorMessage").text(error.text()).show();
+          },
+          success: function() {
+            $("#errorMessage").hide();
+          },
+          submitHandler: function(form) {
+            $("#loginButton").prop('disabled', true).text('Loading...');
+            form.submit();
+          }
+        });
+
+        // Upgrade MDL components
+        if (typeof componentHandler !== 'undefined') {
+          componentHandler.upgradeDom();
+        }
+
+        // Enter key support
+        $("#username").on('keypress', function(e) {
+          if (e.which === 13) {
+            $("#loginForm").submit();
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
+
