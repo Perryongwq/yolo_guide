@@ -8,7 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, AsyncGenerator
+from contextlib import asynccontextmanager
 import os
 import cv2
 import pandas as pd
@@ -36,23 +37,36 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(PROCESSED_FOLDER, exist_ok=True)
 os.makedirs(RESULTS_FOLDER, exist_ok=True)
 
-# Initialize FastAPI app as API-only backend
-app = FastAPI(
-    title="CT600 Vision Guide API",
-    version="1.0.0",
-    description="Backend API for CT600 Vision Inspection System"
-)
+# Global storage for latest processing results
+latest_processing_results = {
+    "y_diff_microns": None,
+    "judgment": None,
+    "processed_timestamp": None
+}
 
-
-# Shutdown event handler
-@app.on_event("shutdown")
-async def shutdown_event():
+# Lifespan context manager for startup and shutdown
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator:
+    """Manage application lifecycle"""
+    # Startup
+    logger.info("Application starting up...")
+    yield
+    # Shutdown
     global camera
     logger.info("Application shutting down...")
     if camera is not None and camera.isOpened():
         camera.release()
         camera = None
         logger.info("Camera released on shutdown")
+
+
+# Initialize FastAPI app as API-only backend
+app = FastAPI(
+    title="CT600 Vision Guide API",
+    version="1.0.0",
+    description="Backend API for CT600 Vision Inspection System",
+    lifespan=lifespan
+)
 
 # Add CORS middleware
 app.add_middleware(
@@ -459,6 +473,7 @@ async def save_image(request: Request):
 
         image_url = data.get("image_url")
         machine_number = data.get("machine_number", "").strip().lower()
+        username = data.get("username", "Unknown")  # Get username from request
 
         # Validate machine number format
         if (
@@ -519,25 +534,40 @@ async def save_image(request: Request):
 
         logger.info(f"Image saved to: {image_path}")
 
-        # Append to global Excel
+        # Get the latest processing results
+        y_diff = latest_processing_results.get("y_diff_microns", "N/A")
+        judgment = latest_processing_results.get("judgment", "N/A")
+        
+        # Prepare new row with all required information
         new_row = {
+            "Username": username,
             "Image Name": image_filename,
-            "Machine Number": machine_number,
-            "Saved Path": image_path,
+            "Y-Difference (microns)": y_diff,
+            "Judgment": judgment,
             "Checked Date and Time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "Machine Number": machine_number.upper(),
+            "Saved Path": image_path,
         }
 
+        # Create machine-specific Excel file
+        excel_filename = f"{machine_number}_results.xlsx"
+        excel_path = os.path.join(result_folder, excel_filename)
+
         try:
-            if os.path.exists(EXCEL_FILE):
-                df_existing = pd.read_excel(EXCEL_FILE)
+            if os.path.exists(excel_path):
+                # Append to existing Excel file
+                df_existing = pd.read_excel(excel_path)
                 df_updated = pd.concat(
                     [df_existing, pd.DataFrame([new_row])], ignore_index=True
                 )
+                logger.info(f"Appending to existing Excel file: {excel_path}")
             else:
+                # Create new Excel file
                 df_updated = pd.DataFrame([new_row])
+                logger.info(f"Creating new Excel file: {excel_path}")
 
-            df_updated.to_excel(EXCEL_FILE, index=False)
-            logger.info("Excel file updated successfully")
+            df_updated.to_excel(excel_path, index=False)
+            logger.info(f"Excel file updated successfully: {excel_path}")
 
         except Exception as e:
             logger.error(f"Failed to update Excel file: {e}")
@@ -545,7 +575,11 @@ async def save_image(request: Request):
                 status_code=500, detail=f"Failed to save to Excel: {str(e)}"
             )
 
-        return {"success": True, "message": "Image and result saved!"}
+        return {
+            "success": True, 
+            "message": "Image and result saved!",
+            "excel_path": excel_path
+        }
 
     except HTTPException:
         raise
@@ -675,6 +709,15 @@ async def manual_submit(request: Request):
         processed_path = os.path.join(PROCESSED_FOLDER, "processed_image.png")
         cv2.imwrite(processed_path, image)
         logger.info(f"Processed image saved to: {processed_path}")
+
+        # Store results in global variable for later use when saving
+        global latest_processing_results
+        latest_processing_results = {
+            "y_diff_microns": round(y_diff_microns, 2),
+            "judgment": judgment,
+            "processed_timestamp": current_datetime
+        }
+        logger.info(f"Stored processing results: {latest_processing_results}")
 
         # Save to Excel
         try:
@@ -963,6 +1006,15 @@ async def index_post(request: Request):
         cv2.imwrite(processed_path, image)
         logger.info(f"Processed image saved to: {processed_path}")
 
+        # Store results in global variable for later use when saving
+        global latest_processing_results
+        latest_processing_results = {
+            "y_diff_microns": round(y_diff_microns, 2),
+            "judgment": judgment,
+            "processed_timestamp": current_datetime
+        }
+        logger.info(f"Stored processing results: {latest_processing_results}")
+
         # Save results to Excel
         try:
             results_df = pd.DataFrame(
@@ -995,4 +1047,4 @@ async def index_post(request: Request):
 
 if __name__ == "__main__":
     logger.info("Starting FastAPI application...")
-    uvicorn.run(app, host="localhost", port=5000, log_level="info", reload=True)
+    uvicorn.run("app_fastapi:app", host="localhost", port=5000, log_level="info", reload=True)
