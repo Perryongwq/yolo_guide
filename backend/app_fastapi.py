@@ -663,7 +663,7 @@ async def manual_submit(request: Request):
         cv2.putText(
             image,
             f"{y_diff_microns:.2f} microns (b1-b2)",
-            (text_x - 160, mid_y),
+            (text_x - 50, mid_y),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.8,
             (255, 255, 255),
@@ -672,7 +672,7 @@ async def manual_submit(request: Request):
         cv2.putText(
             image,
             f"Judgment: {judgment}",
-            (text_x - 160, mid_y + 40),
+            (text_x - 50, mid_y + 40),
             cv2.FONT_HERSHEY_SIMPLEX,
             1.0,
             judgment_color,
