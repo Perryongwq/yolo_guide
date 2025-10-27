@@ -136,6 +136,7 @@ class_names_15type = [
 MICRONS_PER_PIXEL = 2.3
 BLOCK1_OFFSET = 0.0
 BLOCK2_OFFSET = 0.0
+MEASUREMENT_OFFSET_MICRONS = 5.0  # Offset to apply to final measurement (e.g., +5 to correct camera calibration)
 judgment_criteria = {"good": 10, "acceptable": 20}
 
 # Camera setup - Initialize as None for lazy loading
@@ -642,7 +643,7 @@ async def manual_submit(request: Request):
 
         # Signed difference: block1_edge - block2_edge (no abs here)
         y_diff_pixels = y1 - y2
-        y_diff_microns = y_diff_pixels * microns_per_pixel
+        y_diff_microns = (y_diff_pixels * microns_per_pixel) + MEASUREMENT_OFFSET_MICRONS
 
         current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -930,6 +931,7 @@ async def index_post(request: Request):
             logger.info(
                 f"[Calibration] cal_mark width = {calibration_marker_width_px:.2f}px, microns/px = {microns_per_pixel:.2f}"
             )
+            print(f"[Calibration] cal_mark width = {calibration_marker_width_px:.2f}px, microns/px = {microns_per_pixel:.2f}")
 
             if microns_per_pixel > 10:
                 logger.warning(
@@ -956,7 +958,7 @@ async def index_post(request: Request):
 
         # Calculate measurements
         y_diff_pixels = block1_edge_y - block2_edge_y
-        y_diff_microns = y_diff_pixels * microns_per_pixel
+        y_diff_microns = (y_diff_pixels * microns_per_pixel) + MEASUREMENT_OFFSET_MICRONS
         current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         # Judgment logic
