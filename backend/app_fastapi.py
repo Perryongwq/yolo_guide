@@ -660,7 +660,7 @@ async def manual_submit(request: Request):
 
         # Annotations
         mid_y = int((y1 + y2) / 2)
-        text_x = w // 2
+        text_x = w // 2 + 250  # Shifted to the right
         cv2.putText(
             image,
             f"{y_diff_microns:.2f} microns (b1-b2)",
@@ -691,7 +691,7 @@ async def manual_submit(request: Request):
         cv2.putText(
             image,
             "Manual Judgment",
-            (text_x - 160, mid_y + 80),
+            (text_x - 120, mid_y + 80),
             cv2.FONT_HERSHEY_SIMPLEX,
             1.0,
             (255, 255, 255),
@@ -973,7 +973,7 @@ async def index_post(request: Request):
             judgment_color = (0, 0, 255)
 
         # Add annotations
-        text_x = image.shape[1] // 2
+        text_x = image.shape[1] // 2 + 250  # Shifted to the right
         text_y = int((block1_edge_y + block2_edge_y) / 2)
         cv2.putText(
             image,
