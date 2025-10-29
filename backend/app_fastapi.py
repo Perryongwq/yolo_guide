@@ -41,8 +41,9 @@ os.makedirs(RESULTS_FOLDER, exist_ok=True)
 latest_processing_results = {
     "y_diff_microns": None,
     "judgment": None,
-    "processed_timestamp": None
+    "processed_timestamp": None,
 }
+
 
 # Lifespan context manager for startup and shutdown
 @asynccontextmanager
@@ -65,7 +66,7 @@ app = FastAPI(
     title="CT600 Vision Guide API",
     version="1.0.0",
     description="Backend API for CT600 Vision Inspection System",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Add CORS middleware
@@ -136,7 +137,9 @@ class_names_15type = [
 MICRONS_PER_PIXEL = 2.3
 BLOCK1_OFFSET = 0.0
 BLOCK2_OFFSET = 0.0
-MEASUREMENT_OFFSET_MICRONS = 5.0  # Offset to apply to final measurement (e.g., +5 to correct camera calibration)
+MEASUREMENT_OFFSET_MICRONS = (
+    5.0  # Offset to apply to final measurement (e.g., +5 to correct camera calibration)
+)
 judgment_criteria = {"good": 10, "acceptable": 20}
 
 # Camera setup - Initialize as None for lazy loading
@@ -260,12 +263,12 @@ async def video_feed():
                 if not camera.isOpened():
                     logger.error("Failed to reinitialize camera in video_feed")
                     break
-            
+
             ret, frame = camera.read()
             if not ret:
                 logger.warning("Failed to read frame from camera")
                 break
-            
+
             # Encode with lower quality for faster streaming
             encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 75]
             _, buffer = cv2.imencode(".jpg", frame, encode_param)
@@ -299,22 +302,26 @@ async def capture_image():
 
         captured_path = os.path.join(UPLOAD_FOLDER, "captured_image.png")
         success = cv2.imwrite(captured_path, frame)
-        
+
         if not success or not os.path.exists(captured_path):
             logger.error("Failed to write captured image to disk")
-            raise HTTPException(status_code=500, detail="Failed to save captured image.")
-            
+            raise HTTPException(
+                status_code=500, detail="Failed to save captured image."
+            )
+
         # Verify file size
         file_size = os.path.getsize(captured_path)
-        logger.info(f"Image captured and saved to {captured_path}, size: {file_size} bytes")
-        
+        logger.info(
+            f"Image captured and saved to {captured_path}, size: {file_size} bytes"
+        )
+
         if file_size == 0:
             logger.error("Captured image is empty")
             raise HTTPException(status_code=500, detail="Captured image is empty.")
 
     # Small delay to ensure file is completely written
     await asyncio.sleep(0.05)  # Reduced from 0.1 to 0.05 for faster response
-    
+
     return {
         "success": True,
         "image_path": f"/uploads/captured_image.png",
@@ -330,7 +337,7 @@ async def reconnect_camera():
     # Run camera operations in thread pool to avoid blocking
     def _reconnect():
         global camera
-        
+
         # Release existing camera if open (with timeout)
         if camera is not None:
             try:
@@ -340,29 +347,29 @@ async def reconnect_camera():
             except Exception as e:
                 logger.warning(f"Error releasing camera (ignoring): {e}")
             camera = None
-        
+
         # Small delay to ensure camera is fully released
         time.sleep(0.05)
-        
+
         # Initialize new camera connection with optimized settings
         new_camera = init_camera_optimized()
-        
+
         if new_camera.isOpened():
             logger.info("Camera reconnected successfully")
             return new_camera
         else:
             logger.error("Failed to open camera")
             return None
-    
+
     # Execute in thread pool
     loop = asyncio.get_event_loop()
     new_cam = await loop.run_in_executor(None, _reconnect)
-    
+
     if new_cam is None:
         logger.error("Failed to reconnect camera")
         camera = None
         raise HTTPException(status_code=500, detail="Failed to reconnect camera.")
-    
+
     camera = new_cam
     return {"success": True, "message": "Camera reconnected successfully!"}
 
@@ -371,7 +378,7 @@ async def reconnect_camera():
 async def disconnect_camera():
     global camera
     logger.info("Disconnecting camera")
-    
+
     # Run camera release in thread pool for faster response
     def _disconnect():
         global camera
@@ -388,10 +395,10 @@ async def disconnect_camera():
             logger.info("Camera already disconnected")
             camera = None
             return False
-    
+
     loop = asyncio.get_event_loop()
     was_open = await loop.run_in_executor(None, _disconnect)
-    
+
     if was_open:
         return {"success": True, "message": "Camera disconnected successfully!"}
     else:
@@ -404,9 +411,9 @@ async def uploaded_file(filename: str):
     if not os.path.exists(file_path):
         logger.error(f"File not found: {file_path}")
         raise HTTPException(status_code=404, detail="File not found")
-    
+
     logger.info(f"Serving file: {file_path}, size: {os.path.getsize(file_path)} bytes")
-    
+
     return FileResponse(
         file_path,
         media_type="image/png",
@@ -414,8 +421,8 @@ async def uploaded_file(filename: str):
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Pragma": "no-cache",
             "Expires": "0",
-            "Access-Control-Allow-Origin": "*"
-        }
+            "Access-Control-Allow-Origin": "*",
+        },
     )
 
 
@@ -425,9 +432,11 @@ async def processed_file(filename: str):
     if not os.path.exists(file_path):
         logger.error(f"Processed file not found: {file_path}")
         raise HTTPException(status_code=404, detail="File not found")
-    
-    logger.info(f"Serving processed file: {file_path}, size: {os.path.getsize(file_path)} bytes")
-    
+
+    logger.info(
+        f"Serving processed file: {file_path}, size: {os.path.getsize(file_path)} bytes"
+    )
+
     return FileResponse(
         file_path,
         media_type="image/png",
@@ -435,8 +444,8 @@ async def processed_file(filename: str):
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Pragma": "no-cache",
             "Expires": "0",
-            "Access-Control-Allow-Origin": "*"
-        }
+            "Access-Control-Allow-Origin": "*",
+        },
     )
 
 
@@ -447,9 +456,11 @@ async def results_file(machine_number: str, filename: str):
     if not os.path.exists(file_path):
         logger.error(f"Result file not found: {file_path}")
         raise HTTPException(status_code=404, detail="File not found")
-    
-    logger.info(f"Serving result file: {file_path}, size: {os.path.getsize(file_path)} bytes")
-    
+
+    logger.info(
+        f"Serving result file: {file_path}, size: {os.path.getsize(file_path)} bytes"
+    )
+
     return FileResponse(
         file_path,
         media_type="image/png",
@@ -457,8 +468,8 @@ async def results_file(machine_number: str, filename: str):
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Pragma": "no-cache",
             "Expires": "0",
-            "Access-Control-Allow-Origin": "*"
-        }
+            "Access-Control-Allow-Origin": "*",
+        },
     )
 
 
@@ -538,7 +549,7 @@ async def save_image(request: Request):
         # Get the latest processing results
         y_diff = latest_processing_results.get("y_diff_microns", "N/A")
         judgment = latest_processing_results.get("judgment", "N/A")
-        
+
         # Prepare new row with all required information
         new_row = {
             "Username": username,
@@ -577,9 +588,9 @@ async def save_image(request: Request):
             )
 
         return {
-            "success": True, 
+            "success": True,
             "message": "Image and result saved!",
-            "excel_path": excel_path
+            "excel_path": excel_path,
         }
 
     except HTTPException:
@@ -643,7 +654,9 @@ async def manual_submit(request: Request):
 
         # Signed difference: block1_edge - block2_edge (no abs here)
         y_diff_pixels = y1 - y2
-        y_diff_microns = (y_diff_pixels * microns_per_pixel) + MEASUREMENT_OFFSET_MICRONS
+        y_diff_microns = (
+            y_diff_pixels * microns_per_pixel
+        ) + MEASUREMENT_OFFSET_MICRONS
 
         current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -716,7 +729,7 @@ async def manual_submit(request: Request):
         latest_processing_results = {
             "y_diff_microns": round(y_diff_microns, 2),
             "judgment": judgment,
-            "processed_timestamp": current_datetime
+            "processed_timestamp": current_datetime,
         }
         logger.info(f"Stored processing results: {latest_processing_results}")
 
@@ -791,9 +804,10 @@ async def root():
             "reconnect_camera": "/reconnect_camera",
             "process_image": "/",
             "manual_submit": "/manual-submit",
-            "save_image": "/save-image"
-        }
+            "save_image": "/save-image",
+        },
     }
+
 
 @app.get("/health")
 async def health_check():
@@ -801,8 +815,9 @@ async def health_check():
     return {
         "status": "healthy",
         "service": "CT600 Vision API",
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
     }
+
 
 @app.post("/")
 async def index_post(request: Request):
@@ -931,7 +946,9 @@ async def index_post(request: Request):
             logger.info(
                 f"[Calibration] cal_mark width = {calibration_marker_width_px:.2f}px, microns/px = {microns_per_pixel:.2f}"
             )
-            print(f"[Calibration] cal_mark width = {calibration_marker_width_px:.2f}px, microns/px = {microns_per_pixel:.2f}")
+            print(
+                f"[Calibration] cal_mark width = {calibration_marker_width_px:.2f}px, microns/px = {microns_per_pixel:.2f}"
+            )
 
             if microns_per_pixel > 10:
                 logger.warning(
@@ -958,7 +975,9 @@ async def index_post(request: Request):
 
         # Calculate measurements
         y_diff_pixels = block1_edge_y - block2_edge_y
-        y_diff_microns = (y_diff_pixels * microns_per_pixel) + MEASUREMENT_OFFSET_MICRONS
+        y_diff_microns = (
+            y_diff_pixels * microns_per_pixel
+        ) + MEASUREMENT_OFFSET_MICRONS
         current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
         # Judgment logic
@@ -1013,7 +1032,7 @@ async def index_post(request: Request):
         latest_processing_results = {
             "y_diff_microns": round(y_diff_microns, 2),
             "judgment": judgment,
-            "processed_timestamp": current_datetime
+            "processed_timestamp": current_datetime,
         }
         logger.info(f"Stored processing results: {latest_processing_results}")
 
@@ -1049,4 +1068,6 @@ async def index_post(request: Request):
 
 if __name__ == "__main__":
     logger.info("Starting FastAPI application...")
-    uvicorn.run("app_fastapi:app", host="localhost", port=5000, log_level="info", reload=True)
+    uvicorn.run(
+        "app_fastapi:app", host="localhost", port=5000, log_level="info", reload=True
+    )
