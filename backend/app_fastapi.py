@@ -486,6 +486,7 @@ async def save_image(request: Request):
         image_url = data.get("image_url")
         machine_number = data.get("machine_number", "").strip().lower()
         username = data.get("username", "Unknown")  # Get username from request
+        human_judgement = data.get("human_judgement", "")  # Get human judgement from request
 
         # Validate machine number format
         if (
@@ -555,9 +556,10 @@ async def save_image(request: Request):
             "Username": username,
             "Image Name": image_filename,
             "Y-Difference (microns)": y_diff,
-            "Judgment": judgment,
+            "AI Judgment": judgment,
             "Checked Date and Time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "Machine Number": machine_number.upper(),
+            "Human Judgement": human_judgement,
             "Saved Path": image_path,
         }
 
