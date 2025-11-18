@@ -292,6 +292,12 @@
             
             <div class="form-group" style="justify-content: center;">
               <input type="text" id="machineNumber" placeholder="Enter Machine Number (scan or type)" style="width: 400px;">
+              <label for="humanJudgement" style="margin-left: 20px; min-width: auto;">Human Judgement:</label>
+              <select id="humanJudgement" style="width: 150px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                <option value="">Select...</option>
+                <option value="G">G</option>
+                <option value="NG">NG</option>
+              </select>
             </div>
             <br>
             <button id="save-image" type="button" class="vision-button">Save Result</button>
@@ -717,9 +723,15 @@
   // Save image
   document.getElementById("save-image").addEventListener("click", () => {
     const machineNumber = document.getElementById("machineNumber").value;
+    const humanJudgement = document.getElementById("humanJudgement").value;
 
     if (!machineNumber) {
       alert("Machine number is required to save the image.");
+      return;
+    }
+
+    if (!humanJudgement) {
+      alert("Human Judgement is required to save the image.");
       return;
     }
 
@@ -744,7 +756,8 @@
         body: JSON.stringify({
           image_url: base64Image,
           machine_number: machineNumber.trim(),
-          username: USERNAME
+          username: USERNAME,
+          human_judgement: humanJudgement
         })
       })
       .then(response => response.json())
@@ -753,6 +766,7 @@
           alert("✅ Image saved successfully!");
           // Reset form
           document.getElementById("machineNumber").value = "";
+          document.getElementById("humanJudgement").value = "";
           processedImageSection.style.display = "none";
           imageAlignSection.style.display = "none";
         } else {
