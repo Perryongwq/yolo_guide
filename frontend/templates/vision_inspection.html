@@ -169,6 +169,24 @@
             justify-content: center;
             flex-wrap: wrap;
         }
+        .form-group.action-toolbar {
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .result-inputs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            align-items: flex-end;
+            margin-top: 10px;
+        }
+        .result-inputs .input-entry {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            min-width: 220px;
+        }
     </style>
 
   </head>
@@ -244,8 +262,27 @@
               <input type="file" id="image-upload" name="image" accept="image/*">
             </div>
 
-            <div class="form-group">
+            <div class="form-group action-toolbar">
               <button id="connect-camera" type="button" class="vision-button">Connect to Camera</button>
+              <button id="complete-crop" type="button" class="vision-button" style="display:none;">Complete Crop</button>
+              <button id="rotate-left" type="button" class="vision-button" style="display:none;">Rotate Left</button>
+              <button id="rotate-right" type="button" class="vision-button" style="display:none;">Rotate Right</button>
+              <button id="submit-image" type="button" class="vision-button" style="display:none;">Submit</button>
+              <button id="save-image" type="button" class="vision-button" style="display:none;">Save Result</button>
+            </div>
+            <div id="result-inputs" class="form-group result-inputs" style="display:none;">
+              <div class="input-entry">
+                <label for="machineNumber">Machine Number (scan or type)</label>
+                <input type="text" id="machineNumber" placeholder="Enter Machine Number (scan or type)" style="width: 400px;">
+              </div>
+              <div class="input-entry">
+                <label for="humanJudgement">Human Judgement</label>
+                <select id="humanJudgement" style="width: 150px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+                  <option value="">Select...</option>
+                  <option value="G">G</option>
+                  <option value="NG">NG</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -263,19 +300,12 @@
             <div>
               <img id="image-to-crop" alt="Image to Crop">
             </div>
-            <br>
-            <button id="complete-crop" type="button" class="vision-button">Complete Crop</button>
           </div>
 
           <!-- Image Alignment Section -->
           <div id="image-align-section" class="image-section" style="display: none;">
             <h3>Align Image:</h3>
             <canvas id="align-canvas"></canvas><br><br>
-            <div class="button-group">
-              <button id="rotate-left" type="button" class="vision-button">Rotate Left</button>
-              <button id="rotate-right" type="button" class="vision-button">Rotate Right</button>
-              <button id="submit-image" type="button" class="vision-button">Submit</button>
-            </div>
           </div>
 
           <!-- Manual Drawing Section -->
@@ -290,17 +320,6 @@
             <h3>Processed Image:</h3>
             <img id="processed-image" src="" alt="Processed Image"><br><br>
             
-            <div class="form-group" style="justify-content: center;">
-              <input type="text" id="machineNumber" placeholder="Enter Machine Number (scan or type)" style="width: 400px;">
-              <label for="humanJudgement" style="margin-left: 20px; min-width: auto;">Human Judgement:</label>
-              <select id="humanJudgement" style="width: 150px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                <option value="">Select...</option>
-                <option value="G">G</option>
-                <option value="NG">NG</option>
-              </select>
-            </div>
-            <br>
-            <button id="save-image" type="button" class="vision-button">Save Result</button>
           </div>
         </div>
 
@@ -342,12 +361,45 @@
   const liveStream = document.getElementById('live-stream');
   const connectCameraButton = document.getElementById('connect-camera');
   const captureImageButton = document.getElementById('capture-image');
+  const rotateLeftButton = document.getElementById('rotate-left');
+  const rotateRightButton = document.getElementById('rotate-right');
+  const submitImageButton = document.getElementById('submit-image');
+  const saveImageButton = document.getElementById('save-image');
+  const resultInputs = document.getElementById('result-inputs');
   
   let cropper;
   let alignContext = alignCanvas.getContext('2d');
   let croppedImage;
   let alignRotation = 0;
   let latestAlignedImageData = "";
+
+  const alignActionButtons = [rotateLeftButton, rotateRightButton, submitImageButton];
+
+  function toggleVisibility(element, visible, displayType = 'inline-block') {
+    if (!element) return;
+    element.style.display = visible ? displayType : 'none';
+  }
+
+  function setAlignButtonsVisibility(visible) {
+    alignActionButtons.forEach(btn => toggleVisibility(btn, visible));
+  }
+
+  function setCropButtonVisibility(visible) {
+    toggleVisibility(completeCropButton, visible);
+  }
+
+  function setSaveButtonVisibility(visible) {
+    toggleVisibility(saveImageButton, visible);
+  }
+
+  function setResultInputVisibility(visible) {
+    toggleVisibility(resultInputs, visible, 'flex');
+  }
+
+  setCropButtonVisibility(false);
+  setAlignButtonsVisibility(false);
+  setSaveButtonVisibility(false);
+  setResultInputVisibility(false);
 
   // Image compression function
   function compressImage(file, maxWidthHeight, quality, callback) {
@@ -385,11 +437,16 @@
   imageUpload.addEventListener("change", (event) => {
     processedImageSection.style.display = "none";
     processedImage.src = "";
+    setSaveButtonVisibility(false);
+    setCropButtonVisibility(false);
+    setAlignButtonsVisibility(false);
+    setResultInputVisibility(false);
     const file = event.target.files[0];
     if (file) {
       compressImage(file, 1920, 0.8, function(compressedDataUrl) {
         imageToCrop.src = compressedDataUrl;
         imageCropSection.style.display = "block";
+        setCropButtonVisibility(true);
 
         if (cropper) cropper.destroy();
         cropper = new Cropper(imageToCrop, {
@@ -461,6 +518,10 @@
 
               imageToCrop.src = resizeCanvas.toDataURL();
               imageCropSection.style.display = "block";
+            setCropButtonVisibility(true);
+            setAlignButtonsVisibility(false);
+            setSaveButtonVisibility(false);
+            setResultInputVisibility(false);
 
               if (cropper) cropper.destroy();
               cropper = new Cropper(imageToCrop, {
@@ -516,6 +577,7 @@
     cropper = null;
 
     imageCropSection.style.display = 'none';
+    setCropButtonVisibility(false);
 
     alignCanvas.width = croppedImage.width;
     alignCanvas.height = croppedImage.height;
@@ -523,16 +585,17 @@
     alignContext.drawImage(croppedImage, 0, 0);
 
     imageAlignSection.style.display = 'block';
+    setAlignButtonsVisibility(true);
   });
 
   // Rotate left by 2 degrees
-  document.getElementById('rotate-left').addEventListener('click', () => {
+  rotateLeftButton.addEventListener('click', () => {
     alignRotation -= 2;
     applyRotation();
   });
 
   // Rotate right by 2 degrees
-  document.getElementById('rotate-right').addEventListener('click', () => {
+  rotateRightButton.addEventListener('click', () => {
     alignRotation += 2;
     applyRotation();
   });
@@ -550,7 +613,7 @@
   }
 
   // Submit aligned image
-  document.getElementById('submit-image').addEventListener('click', () => {
+  submitImageButton.addEventListener('click', () => {
     const alignedImage = alignCanvas.toDataURL();
     latestAlignedImageData = alignedImage;
     const itemType = document.querySelector('select[name="item_type"]').value;
@@ -578,7 +641,10 @@
       } else if (data.processed_image_url) {
         processedImage.src = `${BACKEND_API}${data.processed_image_url}`;
         imageAlignSection.style.display = 'none';
+        setAlignButtonsVisibility(false);
         processedImageSection.style.display = 'block';
+        setSaveButtonVisibility(true);
+        setResultInputVisibility(true);
       } else {
         alert("Error processing the image. Please try again.");
       }
@@ -619,6 +685,8 @@
 
     document.getElementById("fallback-modal").style.display = "none";
     imageAlignSection.style.display = "none";
+    setAlignButtonsVisibility(false);
+    setSaveButtonVisibility(false);
     document.getElementById("manual-draw-section").style.display = "block";
   }
 
@@ -651,7 +719,10 @@
       } else if (data.processed_image_url) {
         processedImage.src = `${BACKEND_API}${data.processed_image_url}`;
         imageAlignSection.style.display = 'none';
+        setAlignButtonsVisibility(false);
         processedImageSection.style.display = 'block';
+        setSaveButtonVisibility(true);
+        setResultInputVisibility(true);
       } else {
         alert("Error processing the image. Please try again.");
       }
@@ -710,6 +781,8 @@
         document.getElementById("manual-draw-section").style.display = "none";
         processedImage.src = `${BACKEND_API}${data.processed_image_url}`;
         processedImageSection.style.display = "block";
+        setSaveButtonVisibility(true);
+        setResultInputVisibility(true);
       } else {
         alert("Error processing manual lines. Try again.");
       }
@@ -768,7 +841,10 @@
           document.getElementById("machineNumber").value = "";
           document.getElementById("humanJudgement").value = "";
           processedImageSection.style.display = "none";
+          setSaveButtonVisibility(false);
+          setResultInputVisibility(false);
           imageAlignSection.style.display = "none";
+          setAlignButtonsVisibility(false);
         } else {
           alert("❌ Failed to save image.");
         }
