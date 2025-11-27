@@ -35,9 +35,9 @@
 
     <style>
         .vision-container {
-            padding: 20px;
+            padding: 10px;
             background-color: #fff;
-            margin: 20px;
+            margin: 10px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
@@ -106,6 +106,18 @@
         .image-section h3 {
             color: #333;
             margin-bottom: 10px;
+        }
+
+        #image-crop-section {
+            width: min(100%, 920px);
+            max-width: 920px;
+            margin: 20px auto 0;
+        }
+
+        #image-crop-section img {
+            width: 100%;
+            max-height: 640px;
+            object-fit: contain;
         }
 
         #live-stream {
@@ -187,6 +199,41 @@
             gap: 5px;
             min-width: 220px;
         }
+        .demo-layout .mdl-layout__header-row {
+            align-items: center;
+        }
+        .timedisplay {
+            display: inline-flex;
+            gap: 12px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: nowrap;
+        }
+        .display-date {
+            display: inline-flex;
+            gap: 6px;
+            align-items: center;
+            white-space: nowrap;
+            font-size: calc(1rem + 1px);
+        }
+        .display-time {
+            font-size: calc(1rem + 1px);
+            white-space: nowrap;
+        }
+        .demo-layout .mdl-layout__header {
+            height: 56px;
+        }
+        .demo-layout .mdl-layout__header-row {
+            padding: 4px 8px;
+            height: 40px;
+            min-height: 48px;
+        }
+        .demo-layout .mdl-layout-title {
+            font-size: 1rem;
+        }
+        .demo-header .timedisplay {
+            font-size: 0.75rem;
+        }
     </style>
 
   </head>
@@ -233,19 +280,10 @@
             <i class="material-icons" id="toggleDrawerIcon">chevron_left</i>
           </button>
         </header>
-        <nav class="demo-navigation mdl-navigation mdl-color--blue-grey-800">
-          {% for x in sidemenu %}
-                <a class="mdl-navigation__link" href="{{ sidemenu[x]['url'] }}">
-                  <i class="material-icons" role="presentation">{{ sidemenu[x]['icon'] }}</i>{{ sidemenu[x]['title'] }}
-                </a>
-          {% endfor %}
-        </nav>   
       </div>
 
       <main id="mainclass" class="mdl-layout__content mdl-color--grey-100">
         <div class="vision-container">
-          <h2 class="vision-title">CT600 Guide Vision System</h2>
-          
           <!-- Form for Uploading Image -->
           <div class="form-section">
             <div class="form-group">
