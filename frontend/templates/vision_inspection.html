@@ -40,6 +40,8 @@
             margin: 10px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            width: calc(100% - 20px);
+            max-width: 100%;
         }
 
         .vision-title {
@@ -50,32 +52,51 @@
             font-weight: bold;
         }
 
-        .form-section {
+        /* Drawer width adjustment to accommodate form */
+        .mdl-layout__drawer {
+            width: 360px !important;
+        }
+
+        /* Form section in sidebar */
+        .mdl-layout__drawer .form-section {
             display: flex;
             flex-direction: column;
             gap: 15px;
-            margin-bottom: 20px;
+            padding: 15px;
+            overflow-y: auto;
+            max-height: calc(100vh - 180px);
+            margin-top: 10px;
         }
 
-        .form-group {
+        .mdl-layout__drawer .form-group {
             display: flex;
-            flex-direction: row;
-            align-items: center;
-            gap: 10px;
+            flex-direction: column;
+            gap: 8px;
+            align-items: flex-start;
         }
 
-        .form-group label {
+        .mdl-layout__drawer .form-group label {
             font-weight: bold;
-            min-width: 150px;
+            min-width: auto;
+            width: 100%;
+            color: #E0E0E0;
+            font-size: 0.9rem;
         }
 
-        .form-group select,
-        .form-group input[type="file"],
-        .form-group input[type="text"] {
+        .mdl-layout__drawer .form-group select,
+        .mdl-layout__drawer .form-group input[type="file"],
+        .mdl-layout__drawer .form-group input[type="text"] {
             padding: 8px;
-            border: 1px solid #ddd;
+            border: 1px solid #607D8B;
             border-radius: 4px;
-            width: 300px;
+            width: 100%;
+            background-color: #ECEFF1;
+            color: #37474F;
+            box-sizing: border-box;
+        }
+
+        .mdl-layout__drawer .form-group input[type="file"] {
+            font-size: 0.85rem;
         }
 
         .vision-button {
@@ -87,6 +108,13 @@
             background-color: #007bff;
             color: white;
             transition: background-color 0.3s;
+        }
+
+        .mdl-layout__drawer .vision-button {
+            width: 100%;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+            padding: 10px 15px;
         }
 
         .vision-button:hover {
@@ -109,8 +137,8 @@
         }
 
         #image-crop-section {
-            width: min(100%, 920px);
-            max-width: 920px;
+            width: 100%;
+            max-width: 100%;
             margin: 20px auto 0;
         }
 
@@ -122,7 +150,7 @@
 
         #live-stream {
             width: 100%;
-            max-width: 1600px;
+            max-width: 100%;
             height: auto;
             border: 2px solid #007bff;
             border-radius: 4px;
@@ -142,6 +170,8 @@
             border-radius: 4px;
             background-color: #f5f5f5;
             max-width: 100%;
+            width: 100%;
+            height: auto;
         }
 
         .modal-overlay {
@@ -181,23 +211,37 @@
             justify-content: center;
             flex-wrap: wrap;
         }
-        .form-group.action-toolbar {
-            flex-wrap: wrap;
-            gap: 10px;
+        .mdl-layout__drawer .form-group.action-toolbar {
+            flex-direction: column;
+            gap: 8px;
         }
-        .result-inputs {
+        .mdl-layout__drawer .result-inputs {
             display: flex;
-            flex-wrap: wrap;
+            flex-direction: column;
             gap: 15px;
-            justify-content: center;
-            align-items: flex-end;
+            align-items: stretch;
             margin-top: 10px;
         }
-        .result-inputs .input-entry {
+        .mdl-layout__drawer .result-inputs .input-entry {
             display: flex;
             flex-direction: column;
             gap: 5px;
-            min-width: 220px;
+            width: 100%;
+        }
+        .mdl-layout__drawer .result-inputs .input-entry input,
+        .mdl-layout__drawer .result-inputs .input-entry select {
+            width: 100% !important;
+            box-sizing: border-box;
+            padding: 8px;
+            border: 1px solid #607D8B;
+            border-radius: 4px;
+            background-color: #ECEFF1;
+            color: #37474F;
+            font-size: 0.9rem;
+        }
+        .mdl-layout__drawer .result-inputs .input-entry label {
+            color: #E0E0E0;
+            font-size: 0.9rem;
         }
         .demo-layout .mdl-layout__header-row {
             align-items: center;
@@ -233,6 +277,25 @@
         }
         .demo-header .timedisplay {
             font-size: 0.75rem;
+        }
+
+        /* Adjust header position for new drawer width */
+        .mdl-layout__header {
+            left: 360px !important;
+        }
+
+        body.drawer-minimized .mdl-layout__header {
+            left: 56px !important;
+        }
+
+        /* Hide form section when drawer is minimized */
+        .mdl-layout__drawer.minimized .form-section {
+            display: none;
+        }
+
+        /* Ensure form section has proper styling */
+        .mdl-layout__drawer .form-section {
+            background-color: transparent;
         }
     </style>
 
@@ -280,49 +343,50 @@
             <i class="material-icons" id="toggleDrawerIcon">chevron_left</i>
           </button>
         </header>
+        
+        <!-- Form for Uploading Image -->
+        <div class="form-section">
+          <div class="form-group">
+            <label for="item_type">Select Item Type:</label>
+            <select id="item_type" name="item_type">
+              <option value="03type">03 Type</option>
+              <option value="32type">32 Type</option>
+              <option value="15type" selected>15 Type</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="image-upload">Upload Image:</label>
+            <input type="file" id="image-upload" name="image" accept="image/*">
+          </div>
+
+          <div class="form-group action-toolbar">
+            <button id="connect-camera" type="button" class="vision-button">Connect to Camera</button>
+            <button id="complete-crop" type="button" class="vision-button" style="display:none;">Complete Crop</button>
+            <button id="rotate-left" type="button" class="vision-button" style="display:none;">Rotate Left</button>
+            <button id="rotate-right" type="button" class="vision-button" style="display:none;">Rotate Right</button>
+            <button id="submit-image" type="button" class="vision-button" style="display:none;">Submit</button>
+            <button id="save-image" type="button" class="vision-button" style="display:none;">Save Result</button>
+          </div>
+          <div id="result-inputs" class="form-group result-inputs" style="display:none;">
+            <div class="input-entry">
+              <label for="machineNumber">Machine Number (scan or type)</label>
+              <input type="text" id="machineNumber" placeholder="Enter Machine Number (scan or type)">
+            </div>
+            <div class="input-entry">
+              <label for="humanJudgement">Human Judgement</label>
+              <select id="humanJudgement">
+                <option value="">Select...</option>
+                <option value="G">G</option>
+                <option value="NG">NG</option>
+              </select>
+            </div>
+          </div>
+        </div>
       </div>
 
       <main id="mainclass" class="mdl-layout__content mdl-color--grey-100">
         <div class="vision-container">
-          <!-- Form for Uploading Image -->
-          <div class="form-section">
-            <div class="form-group">
-              <label for="item_type">Select Item Type:</label>
-              <select id="item_type" name="item_type">
-                <option value="03type">03 Type</option>
-                <option value="32type">32 Type</option>
-                <option value="15type" selected>15 Type</option>
-              </select>
-            </div>
-            
-            <div class="form-group">
-              <label for="image-upload">Upload Image:</label>
-              <input type="file" id="image-upload" name="image" accept="image/*">
-            </div>
-
-            <div class="form-group action-toolbar">
-              <button id="connect-camera" type="button" class="vision-button">Connect to Camera</button>
-              <button id="complete-crop" type="button" class="vision-button" style="display:none;">Complete Crop</button>
-              <button id="rotate-left" type="button" class="vision-button" style="display:none;">Rotate Left</button>
-              <button id="rotate-right" type="button" class="vision-button" style="display:none;">Rotate Right</button>
-              <button id="submit-image" type="button" class="vision-button" style="display:none;">Submit</button>
-              <button id="save-image" type="button" class="vision-button" style="display:none;">Save Result</button>
-            </div>
-            <div id="result-inputs" class="form-group result-inputs" style="display:none;">
-              <div class="input-entry">
-                <label for="machineNumber">Machine Number (scan or type)</label>
-                <input type="text" id="machineNumber" placeholder="Enter Machine Number (scan or type)" style="width: 400px;">
-              </div>
-              <div class="input-entry">
-                <label for="humanJudgement">Human Judgement</label>
-                <select id="humanJudgement" style="width: 150px; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
-                  <option value="">Select...</option>
-                  <option value="G">G</option>
-                  <option value="NG">NG</option>
-                </select>
-              </div>
-            </div>
-          </div>
 
           <!-- Live Stream Section -->
           <div id="camera-stream-section" class="image-section" style="display: none;">
