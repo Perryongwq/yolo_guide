@@ -639,7 +639,7 @@
 .mdl-layout__header {
     position: fixed !important;
     top: 0 !important;
-    left: 240px !important;
+    left: 360px !important;
     right: 0 !important;
     width: auto !important;
     transition: left 0.3s ease !important;
@@ -683,7 +683,7 @@ body.drawer-minimized .mdl-layout__header {
 }
 
 .mdl-layout__content {
-    margin-left: 240px !important;
+    margin-left: 360px !important;
     margin-top: 64px !important;
     transition: margin-left 0.3s ease !important;
 }
@@ -694,7 +694,7 @@ body.drawer-minimized .mdl-layout__content {
 }
 
 body:not(.drawer-minimized) .mdl-layout__content {
-    margin-left: 240px !important;
+    margin-left: 360px !important;
     transition: margin-left 0.3s ease;
 }
 
