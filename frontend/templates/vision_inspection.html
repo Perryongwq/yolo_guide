@@ -415,6 +415,7 @@
           </div>
 
           <div class="form-group action-toolbar">
+            <button id="capture-image" type="button" class="vision-button" style="display:none;">Capture Image</button>
             <button id="connect-camera" type="button" class="vision-button">Connect to Camera</button>
             <button id="complete-crop" type="button" class="vision-button" style="display:none;">Complete Crop</button>
             <button id="rotate-left" type="button" class="vision-button" style="display:none;">Rotate Left</button>
@@ -446,8 +447,6 @@
           <div id="camera-stream-section" class="image-section" style="display: none;">
             <h3>Camera Live Stream:</h3>
             <img id="live-stream" src="" alt="Live Stream">
-            <br><br>
-            <button id="capture-image" type="button" class="vision-button">Capture Image</button>
           </div>
 
           <!-- Image Cropping Section -->
@@ -623,6 +622,8 @@
         if (data.success) {
           liveStream.src = `${BACKEND_API}/video_feed`;
           cameraStreamSection.style.display = "block";
+          // Show capture image button when camera is connected
+          captureImageButton.style.display = "block";
         } else {
           alert("Failed to reconnect the camera.");
         }
@@ -650,6 +651,8 @@
           // Hide camera stream section after capture
           cameraStreamSection.style.display = "none";
           liveStream.src = "";
+          // Hide capture button when camera stream is hidden
+          captureImageButton.style.display = "none";
           
           // Add a small delay to ensure file is ready
           setTimeout(() => {
