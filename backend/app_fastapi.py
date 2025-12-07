@@ -122,8 +122,20 @@ async def log_requests(request: Request, call_next):
 
 # Note: Static files and templates removed - frontend handles all UI
 
-# Load YOLO model for 15type only
-MODEL_PATH = r"C:\Programming\Taping machine\Fastapi_Taping_vision_guide\weights 1\weights\best.pt"
+# Load YOLO model for 15type only - dynamically load from models directory
+# Get the directory where this script is located
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODELS_DIR = os.path.join(BASE_DIR, "models")
+MODEL_FILENAME = "15type_model.pt"
+MODEL_PATH = os.path.join(MODELS_DIR, MODEL_FILENAME)
+
+# Validate model file exists
+if not os.path.exists(MODEL_PATH):
+    raise FileNotFoundError(
+        f"Model file not found at {MODEL_PATH}. Please ensure the model file exists."
+    )
+
+logger.info(f"Loading YOLO model from: {MODEL_PATH}")
 model = YOLO(MODEL_PATH)
 class_names_15type = [
     "block1_edge15",
