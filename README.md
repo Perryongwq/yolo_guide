@@ -21,26 +21,28 @@ docker-compose up -d
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.12
 - Docker (optional)
 - Camera (optional)
 
 ## Setup
 
 ### Option 1: Direct Run
+
 ```bash
 # Backend
 cd backend
 pip install -r requirements_fastapi.txt
 python app_fastapi.py
 
-# Frontend  
+# Frontend
 cd frontend
 pip install -r requirements.txt
 python app.py
 ```
 
 ### Option 2: Docker
+
 ```bash
 docker-compose up --build
 ```
@@ -77,8 +79,3 @@ docker-compose up --build
 │   └── Dockerfile
 └── docker-compose.yml
 ```
-
-## License
-
-Proprietary - Internal Use Only
-
