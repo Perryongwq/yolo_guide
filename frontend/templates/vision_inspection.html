@@ -319,12 +319,12 @@
             white-space: nowrap;
         }
         .demo-layout .mdl-layout__header {
-            height: 56px;
+            height: 28px;
         }
         .demo-layout .mdl-layout__header-row {
-            padding: 4px 8px;
-            height: 40px;
-            min-height: 48px;
+            padding: 0;
+            height: 20px;
+            min-height: 24px;
         }
         .demo-layout .mdl-layout-title {
             font-size: 1rem;
@@ -528,7 +528,7 @@
   let alignRotation = 0;
   let latestAlignedImageData = "";
 
-  const alignActionButtons = [rotateLeftButton, rotateRightButton, submitImageButton];
+  const alignActionButtons = [submitImageButton];
 
   function toggleVisibility(element, visible, displayType = 'inline-block') {
     if (!element) return;
