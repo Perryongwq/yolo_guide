@@ -35,13 +35,18 @@
 
     <style>
         .vision-container {
-            padding: 10px;
+            padding: 0px 10px 5px 10px;
             background-color: #fff;
-            margin: 10px;
+            margin: 0 10px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             width: calc(100% - 20px);
             max-width: 100%;
+        }
+        
+        /* Remove top spacing from main content */
+        .mdl-layout__content {
+            padding-top: 0 !important;
         }
 
         .vision-title {
@@ -181,17 +186,35 @@
         }
 
         .image-section {
-            margin-top: 20px;
+            margin-top: 5px;
             text-align: center;
         }
 
         .image-section h3 {
             color: #333;
             margin-bottom: 10px;
+            font-size: 18px;
+            line-height: 1.2;
+            margin-top: 10px;
+            padding-top: 5px;
         }
 
         #image-crop-section h3 {
             margin-bottom: 0;
+            padding-top: 0px;
+            margin-top: 5px;
+        }
+
+        #processed-image-section h3 {
+            padding-top: 0px;
+            margin-top: 5px;
+            margin-bottom: 0px;
+        }
+
+        #image-align-section h3 {
+            padding-top: 0px;
+            margin-top: 5px;
+            margin-bottom: 5px;
         }
 
         #image-crop-section > div {
@@ -206,12 +229,17 @@
         #image-crop-section {
             width: 100%;
             max-width: 100%;
-            margin: 20px auto 0;
+            margin: 5px auto 0;
+        }
+
+        #image-align-section {
+            margin-top: 5px;
+            margin-bottom: 5px;
         }
 
         #image-crop-section img {
             width: 100%;
-            max-height: 640px;
+            max-height: 518px;
             object-fit: contain;
         }
 
@@ -226,6 +254,7 @@
         #image-to-crop,
         #processed-image {
             max-width: 100%;
+            max-height: 518px;
             height: auto;
             border: 2px solid #ddd;
             border-radius: 4px;
@@ -237,6 +266,7 @@
             border-radius: 4px;
             background-color: #f5f5f5;
             max-width: 100%;
+            max-height: 518px;
             width: 100%;
             height: auto;
         }
@@ -313,37 +343,60 @@
         .demo-layout .mdl-layout__header-row {
             align-items: center;
         }
+        
+        /* Reduce header height */
+        .demo-header.mdl-layout__header {
+            min-height: 48px;
+            height: 48px;
+        }
+        
+        .demo-layout .mdl-layout__header {
+            height: 48px;
+        }
+        
+        .demo-layout .mdl-layout__header-row {
+            height: 48px;
+            padding: 0 20px;
+        }
+        
+        /* Reduce title font size */
+        .demo-layout .mdl-layout-title {
+            font-size: 18px;
+            line-height: 48px;
+        }
+        
+        /* Reduce time display size */
         .timedisplay {
             display: inline-flex;
             gap: 12px;
             align-items: center;
             justify-content: center;
             flex-wrap: nowrap;
+            font-size: 12px;
         }
+        
         .display-date {
             display: inline-flex;
             gap: 6px;
             align-items: center;
             white-space: nowrap;
-            font-size: calc(1rem + 1px);
+            font-size: 11px;
         }
+        
         .display-time {
-            font-size: calc(1rem + 1px);
+            font-size: 13px;
+            font-weight: 500;
             white-space: nowrap;
         }
-        .demo-layout .mdl-layout__header {
-            height: 28px;
-        }
-        .demo-layout .mdl-layout__header-row {
-            padding: 0;
-            height: 20px;
-            min-height: 24px;
-        }
-        .demo-layout .mdl-layout-title {
-            font-size: 1rem;
-        }
+        
         .demo-header .timedisplay {
-            font-size: 0.75rem;
+            font-size: 12px;
+        }
+        
+        /* Adjust drawer button */
+        .mdl-layout__drawer-button {
+            height: 48px;
+            line-height: 48px;
         }
 
         /* Adjust header position for new drawer width */
@@ -363,6 +416,36 @@
         /* Ensure form section has proper styling */
         .mdl-layout__drawer .form-section {
             background-color: transparent;
+        }
+
+        /* Reduce footer height by 50% */
+        .mdl-mini-footer {
+            padding: 8px 16px;
+            min-height: 20px;
+        }
+
+        .mdl-mini-footer_left-section {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Reduce footer text size */
+        .mdl-mini-footer .mdl-logo {
+            font-size: 11px;
+            line-height: 20px;
+        }
+
+        .mdl-mini-footer__link-list {
+            margin: 0;
+            padding: 0;
+        }
+
+        .mdl-mini-footer__link-list li {
+            font-size: 10px;
+            line-height: 20px;
+            margin: 0;
+            padding: 0;
         }
     </style>
 
