@@ -190,6 +190,19 @@
             margin-bottom: 10px;
         }
 
+        #image-crop-section h3 {
+            margin-bottom: 0;
+        }
+
+        #image-crop-section > div {
+            margin-top: 0;
+        }
+
+        #image-to-crop {
+            display: block;
+            margin-top: 0;
+        }
+
         #image-crop-section {
             width: 100%;
             max-width: 100%;
@@ -1006,6 +1019,8 @@
           setResultInputVisibility(false);
           imageAlignSection.style.display = "none";
           setAlignButtonsVisibility(false);
+          // Re-enable connect camera button after successful save
+          connectCameraButton.style.display = "block";
         } else {
           alert("❌ Failed to save image.");
         }
