@@ -624,6 +624,8 @@
           cameraStreamSection.style.display = "block";
           // Show capture image button when camera is connected
           captureImageButton.style.display = "block";
+          // Hide connect camera button after successful connection
+          connectCameraButton.style.display = "none";
         } else {
           alert("Failed to reconnect the camera.");
         }
