@@ -20,7 +20,7 @@ import uvicorn
 from configreader.configreader import return_config
 from icecream import ic
 from icecream import install
-from jose import jwe
+from jose import JWE
 
 # Get the directory where this file lives
 BASE_DIR = Path(__file__).resolve().parent
@@ -100,9 +100,9 @@ app = FastAPI(
 
 # Add session middleware (must be added before CORS)
 app.add_middleware(
-    SessionMiddleware, 
+    SessionMiddleware,
     secret_key=secrets.token_urlsafe(32),
-    max_age=3600 * 24  # Session expires after 24 hours
+    max_age=3600 * 24,  # Session expires after 24 hours
 )
 
 # Add CORS middleware
@@ -190,7 +190,11 @@ async def callback(
             logger.error("JWEKEY not found in configuration")
             return templates.TemplateResponse(
                 "error401.html",
-                {"request": request, "page": "MES CT600 Vision System ", "title": title},
+                {
+                    "request": request,
+                    "page": "MES CT600 Vision System ",
+                    "title": title,
+                },
             )
 
         payload = jwe.decrypt(Authorization, jwe_key).decode("utf-8")
@@ -199,7 +203,11 @@ async def callback(
             logger.error("JWE decryption returned empty payload")
             return templates.TemplateResponse(
                 "error401.html",
-                {"request": request, "page": "MES CT600 Vision System ", "title": title},
+                {
+                    "request": request,
+                    "page": "MES CT600 Vision System ",
+                    "title": title,
+                },
             )
 
         data = json.loads(payload)
@@ -213,12 +221,14 @@ async def callback(
     except json.JSONDecodeError as e:
         logger.error(f"Failed to parse JSON from decrypted payload: {e}")
         return templates.TemplateResponse(
-            "error401.html", {"request": request, "page": "MES CT600 Vision System ", "title": title}
+            "error401.html",
+            {"request": request, "page": "MES CT600 Vision System ", "title": title},
         )
     except Exception as e:
         logger.error(f"Failed to decrypt JWE token: {e}")
         return templates.TemplateResponse(
-            "error401.html", {"request": request, "page": "MES CT600 Vision System ", "title": title}
+            "error401.html",
+            {"request": request, "page": "MES CT600 Vision System ", "title": title},
         )
 
     return templates.TemplateResponse(
@@ -248,7 +258,7 @@ async def logoutscreen_with_payroll(
     username = request.session.get("username", "Unknown")
     logger.info(f"User {username} ({payroll}) logging out")
     ic(f"Logout requested for: {username} ({payroll})")
-    
+
     # Clear session
     request.session.clear()
 
@@ -266,7 +276,7 @@ async def logout(
     username = request.session.get("username", "Unknown")
     logger.info(f"User {username} logging out")
     ic(f"Logout requested for: {username}")
-    
+
     # Clear session
     request.session.clear()
 
@@ -305,14 +315,14 @@ async def login_submit(
                 "error": "Please enter a valid name (at least 2 characters)",
             },
         )
-    
+
     # Store username in session
     request.session["username"] = username.strip()
     request.session["payroll"] = "N/A"
-    
+
     logger.info(f"User logged in: {username}")
     ic(f"Login successful: {username}")
-    
+
     # Redirect to vision inspection page
     return RedirectResponse(url="/vision-inspection", status_code=303)
 
@@ -324,14 +334,14 @@ async def vision_inspection(
     """Vision inspection page - requires login"""
     # Check if user is logged in
     username = request.session.get("username")
-    
+
     if not username:
         # Redirect to login page if not logged in
         logger.warning("Unauthorized access attempt to vision inspection page")
         return RedirectResponse(url="/login", status_code=303)
-    
+
     payroll = request.session.get("payroll", "N/A")
-    
+
     logger.info(f"Vision inspection page accessed by: {username}")
 
     return templates.TemplateResponse(
