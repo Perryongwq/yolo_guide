@@ -143,12 +143,12 @@ h2 {
 }
 
 h2, h3 {
-	margin: 24px 0;
+	margin: 10px 0;
 }
 
 h3 {
 	font-size: 34px;
-	line-height: 40px;
+	line-height: 10px;
 }
 
 h3, h4 {
