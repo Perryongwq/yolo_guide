@@ -555,7 +555,7 @@
 
           <!-- Image Alignment Section -->
           <div id="image-align-section" class="image-section" style="display: none;">
-            <h3>Align Image:</h3>
+            <h3>Submit Image:</h3>
             <canvas id="align-canvas"></canvas><br><br>
           </div>
 
@@ -684,7 +684,53 @@
     reader.readAsDataURL(file);
   }
 
-  // Upload and display image for cropping
+  // Helper function to submit image directly for processing
+  function submitImageForProcessing(imageDataUrl) {
+    const itemType = document.querySelector('select[name="item_type"]').value;
+    latestAlignedImageData = imageDataUrl;
+
+    // Hide crop and align sections
+    imageCropSection.style.display = 'none';
+    imageAlignSection.style.display = 'none';
+    setCropButtonVisibility(false);
+    setAlignButtonsVisibility(false);
+
+    fetch(`${BACKEND_API}/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        aligned_image: imageDataUrl,
+        item_type: itemType
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.show_fallback_modal) {
+        const title = data.reason || "Edges Not Detected";
+        document.getElementById("fallback-modal-title").textContent = title;
+        document.getElementById("fallback-modal-message").textContent = "Choose how you want to proceed:";
+        document.getElementById("fallback-modal").style.display = "flex";
+      } else if (data.show_manual_draw_modal) {
+        document.getElementById("fallback-modal-title").textContent = data.reason || "Manual Mode Required";
+        document.getElementById("fallback-modal").style.display = "flex";
+      } else if (data.processed_image_url) {
+        processedImage.src = `${BACKEND_API}${data.processed_image_url}`;
+        processedImageSection.style.display = 'block';
+        setSaveButtonVisibility(true);
+        setResultInputVisibility(true);
+      } else {
+        alert("Error processing the image. Please try again.");
+      }
+    })
+    .catch(error => {
+      console.error("Error:", error);
+      alert("An error occurred while processing the image.");
+    });
+  }
+
+  // Upload and submit image directly for processing
   imageUpload.addEventListener("change", (event) => {
     processedImageSection.style.display = "none";
     processedImage.src = "";
@@ -692,20 +738,14 @@
     setCropButtonVisibility(false);
     setAlignButtonsVisibility(false);
     setResultInputVisibility(false);
+    imageCropSection.style.display = "none";
+    imageAlignSection.style.display = "none";
+    
     const file = event.target.files[0];
     if (file) {
       compressImage(file, 1920, 0.8, function(compressedDataUrl) {
-        imageToCrop.src = compressedDataUrl;
-        imageCropSection.style.display = "block";
-        setCropButtonVisibility(true);
-
-        if (cropper) cropper.destroy();
-        cropper = new Cropper(imageToCrop, {
-          aspectRatio: 16 / 9,
-          viewMode: 1,
-          autoCropArea: 1,
-          responsive: true,
-        });
+        // Submit directly for processing, skipping crop and align
+        submitImageForProcessing(compressedDataUrl);
       });
     }
   });
@@ -729,7 +769,7 @@
       .catch(error => console.error("Error reconnecting camera:", error));
   });
 
-  // Capture Image
+  // Capture Image and submit directly for processing
   captureImageButton.addEventListener("click", () => {
     // Disable button to prevent double-clicks
     captureImageButton.disabled = true;
@@ -773,20 +813,24 @@
 
               resizeContext.drawImage(capturedImg, 0, 0, standardWidth, standardHeight);
 
-              imageToCrop.src = resizeCanvas.toDataURL();
-              imageCropSection.style.display = "block";
-            setCropButtonVisibility(true);
-            setAlignButtonsVisibility(false);
-            setSaveButtonVisibility(false);
-            setResultInputVisibility(false);
-
-              if (cropper) cropper.destroy();
-              cropper = new Cropper(imageToCrop, {
-                aspectRatio: 16 / 9,
-                viewMode: 1,
-                autoCropArea: 1,
-                responsive: true,
-              });
+              // Skip crop section and go directly to align/submit section
+              imageCropSection.style.display = "none";
+              setCropButtonVisibility(false);
+              
+              // Set up align canvas with the captured image
+              alignCanvas.width = resizeCanvas.width;
+              alignCanvas.height = resizeCanvas.height;
+              alignContext.drawImage(resizeCanvas, 0, 0);
+              
+              // Store the image data for later use
+              croppedImage = resizeCanvas;
+              alignRotation = 0;
+              
+              // Show align/submit section
+              imageAlignSection.style.display = "block";
+              setAlignButtonsVisibility(true);
+              setSaveButtonVisibility(false);
+              setResultInputVisibility(false);
               
               // Re-enable button
               captureImageButton.disabled = false;
