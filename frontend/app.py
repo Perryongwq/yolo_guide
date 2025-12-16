@@ -20,7 +20,7 @@ import uvicorn
 from configreader.configreader import return_config
 from icecream import ic
 from icecream import install
-from jose import JWE
+from jose.jwe import decrypt as jwe_decrypt
 
 # Get the directory where this file lives
 BASE_DIR = Path(__file__).resolve().parent
@@ -197,7 +197,7 @@ async def callback(
                 },
             )
 
-        payload = jwe.decrypt(Authorization, jwe_key).decode("utf-8")
+        payload = jwe_decrypt(Authorization, jwe_key).decode("utf-8")
 
         if not payload:
             logger.error("JWE decryption returned empty payload")
