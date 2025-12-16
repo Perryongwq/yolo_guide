@@ -403,6 +403,10 @@
   z-index: 999;
 }
 
+.mdl-mini-footer.footer-stick-bottom {
+  padding-left: 150px;
+}
+
 .mdl-layout--fixed-drawer>.mdl-layout__content {
   padding-bottom: 5%;
 }
