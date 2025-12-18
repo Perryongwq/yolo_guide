@@ -526,7 +526,8 @@
           <div id="result-inputs" class="form-group result-inputs" style="display:none;">
             <div class="input-entry">
               <label for="machineNumber">Machine Number (scan or type)</label>
-              <input type="text" id="machineNumber" placeholder="Enter Machine Number (scan or type)">
+              <input type="text" id="machineNumber" placeholder="Enter 3 digits (e.g., 612)" maxlength="3" pattern="[0-9]{1,3}">
+              <small style="color: #E0E0E0; font-size: 0.85rem; margin-top: 4px; display: block;">Will be saved as: <span id="machineNumberPreview" style="font-weight: bold;">ct---</span></small>
             </div>
             <div class="input-entry">
               <label for="humanJudgement">Human Judgement</label>
@@ -1164,13 +1165,86 @@
     });
   });
 
+  // Function to format machine number with "ct" prefix
+  function formatMachineNumber(input) {
+    let value = input.trim();
+    // Remove any existing "ct" prefix if user typed it
+    if (value.toLowerCase().startsWith("ct")) {
+      value = value.substring(2).trim();
+    }
+    // Remove any non-digit characters
+    value = value.replace(/\D/g, '');
+    // Ensure it's exactly 3 digits
+    if (value.length > 0 && value.length < 3) {
+      value = value.padStart(3, '0');
+    }
+    // Add "ct" prefix
+    if (value.length > 0) {
+      return "ct" + value;
+    }
+    return value;
+  }
+
+  // Machine number input handler - automatically add "ct" prefix
+  const machineNumberInput = document.getElementById("machineNumber");
+  const machineNumberPreview = document.getElementById("machineNumberPreview");
+  
+  function updateMachineNumberPreview() {
+    const value = machineNumberInput.value.trim();
+    if (value) {
+      const formatted = formatMachineNumber(value);
+      if (formatted.length === 5) {
+        machineNumberPreview.textContent = formatted.toUpperCase();
+        machineNumberPreview.style.color = "#4CAF50"; // Green when valid
+      } else {
+        machineNumberPreview.textContent = "ct" + value.padStart(3, '-');
+        machineNumberPreview.style.color = "#E0E0E0";
+      }
+    } else {
+      machineNumberPreview.textContent = "ct---";
+      machineNumberPreview.style.color = "#E0E0E0";
+    }
+  }
+  
+  machineNumberInput.addEventListener("input", (e) => {
+    let value = e.target.value;
+    // Remove any non-digit characters
+    value = value.replace(/\D/g, '');
+    // Limit to 3 digits
+    if (value.length > 3) {
+      value = value.substring(0, 3);
+    }
+    e.target.value = value;
+    updateMachineNumberPreview();
+  });
+
+  machineNumberInput.addEventListener("blur", (e) => {
+    let value = e.target.value.trim();
+    // If user typed something, ensure it's 3 digits
+    if (value && value.length < 3) {
+      // Pad with zeros if less than 3 digits
+      value = value.padStart(3, '0');
+      e.target.value = value;
+      updateMachineNumberPreview();
+    }
+  });
+
   // Save image
   document.getElementById("save-image").addEventListener("click", () => {
-    const machineNumber = document.getElementById("machineNumber").value;
+    const machineNumberRaw = document.getElementById("machineNumber").value;
     const humanJudgement = document.getElementById("humanJudgement").value;
 
-    if (!machineNumber) {
+    if (!machineNumberRaw) {
       alert("Machine number is required to save the image.");
+      return;
+    }
+
+    // Format machine number with "ct" prefix
+    const machineNumber = formatMachineNumber(machineNumberRaw);
+    
+    // Validate format (ct + 3 digits)
+    if (machineNumber.length !== 5 || !machineNumber.startsWith("ct") || !/^ct\d{3}$/.test(machineNumber)) {
+      alert("Invalid machine number format. Please enter 3 digits (e.g., 612).");
       return;
     }
 
@@ -1199,7 +1273,7 @@
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           image_url: base64Image,
-          machine_number: machineNumber.trim(),
+          machine_number: machineNumber.toLowerCase(),
           username: USERNAME,
           human_judgement: humanJudgement
         })
