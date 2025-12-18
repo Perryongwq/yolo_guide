@@ -590,6 +590,17 @@
           </div>
         </div>
 
+        <!-- Error Modal for Processing Failures -->
+        <div id="error-modal" class="modal-overlay">
+          <div class="modal-content">
+            <h2 id="error-modal-title">❌ Processing Failed</h2>
+            <p id="error-modal-message">Failed to process the image. Please try again.</p>
+            <div class="button-group">
+              <button onclick="handleRetakeImage()" class="vision-button" style="background-color: #dc3545;">Retake Image</button>
+            </div>
+          </div>
+        </div>
+
         <footer class="mdl-mini-footer footer-stick-bottom">
           <div class="mdl-mini-footer_left-section">
             <div class="mdl-logo">Copyright © {{year}}. MES CT600 Vision System </div>
@@ -689,7 +700,7 @@
   }
 
   // Helper function to submit image directly for processing
-  function submitImageForProcessing(imageDataUrl) {
+  function submitImageForProcessing(imageDataUrl, fromCameraCapture = false) {
     const itemType = document.querySelector('select[name="item_type"]').value;
     latestAlignedImageData = imageDataUrl;
 
@@ -709,8 +720,19 @@
         item_type: itemType
       })
     })
-    .then(response => response.json())
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    })
     .then(data => {
+      // Re-enable capture button if it was from camera
+      if (fromCameraCapture) {
+        captureImageButton.disabled = false;
+        captureImageButton.textContent = "Capture Image";
+      }
+      
       if (data.show_fallback_modal) {
         const title = data.reason || "Edges Not Detected";
         document.getElementById("fallback-modal-title").textContent = title;
@@ -725,13 +747,70 @@
         setSaveButtonVisibility(true);
         setResultInputVisibility(true);
       } else {
-        alert("Error processing the image. Please try again.");
+        // Show error modal
+        showErrorModal("Failed to process image", "The image could not be processed. Please retake the image.", fromCameraCapture);
       }
     })
     .catch(error => {
       console.error("Error:", error);
-      alert("An error occurred while processing the image.");
+      // Re-enable capture button if it was from camera
+      if (fromCameraCapture) {
+        captureImageButton.disabled = false;
+        captureImageButton.textContent = "Capture Image";
+      }
+      // Show error modal
+      showErrorModal("Processing Error", "An error occurred while processing the image. Please retake the image.", fromCameraCapture);
     });
+  }
+
+  // Function to show error modal
+  function showErrorModal(title, message, fromCameraCapture = false) {
+    document.getElementById("error-modal-title").textContent = title;
+    document.getElementById("error-modal-message").textContent = message;
+    document.getElementById("error-modal").setAttribute("data-from-camera", fromCameraCapture);
+    document.getElementById("error-modal").style.display = "flex";
+  }
+
+  // Function to handle retake image - reconnects camera and enables live mode
+  function handleRetakeImage() {
+    const errorModal = document.getElementById("error-modal");
+    const fromCamera = errorModal.getAttribute("data-from-camera") === "true";
+    
+    // Hide error modal
+    errorModal.style.display = "none";
+    
+    // Hide all image sections
+    imageCropSection.style.display = "none";
+    imageAlignSection.style.display = "none";
+    processedImageSection.style.display = "none";
+    document.getElementById("manual-draw-section").style.display = "none";
+    setCropButtonVisibility(false);
+    setAlignButtonsVisibility(false);
+    setSaveButtonVisibility(false);
+    setResultInputVisibility(false);
+    
+    // Reconnect camera and enable live mode
+    fetch(`${BACKEND_API}/reconnect_camera`, { method: "POST" })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          liveStream.src = `${BACKEND_API}/video_feed`;
+          cameraStreamSection.style.display = "block";
+          captureImageButton.style.display = "block";
+          captureImageButton.disabled = false;
+          captureImageButton.textContent = "Capture Image";
+          // Hide connect camera button since we're already connected
+          connectCameraButton.style.display = "none";
+        } else {
+          alert("Failed to reconnect the camera. Please click 'Connect to Camera' manually.");
+          connectCameraButton.style.display = "block";
+        }
+      })
+      .catch(error => {
+        console.error("Error reconnecting camera:", error);
+        alert("Failed to reconnect the camera. Please click 'Connect to Camera' manually.");
+        connectCameraButton.style.display = "block";
+      });
   }
 
   // Upload and submit image directly for processing
@@ -817,52 +896,39 @@
 
               resizeContext.drawImage(capturedImg, 0, 0, standardWidth, standardHeight);
 
-              // Skip crop section and go directly to align/submit section
-              imageCropSection.style.display = "none";
-              setCropButtonVisibility(false);
-              
-              // Set up align canvas with the captured image
-              alignCanvas.width = resizeCanvas.width;
-              alignCanvas.height = resizeCanvas.height;
-              alignContext.drawImage(resizeCanvas, 0, 0);
-              
               // Store the image data for later use
               croppedImage = resizeCanvas;
               alignRotation = 0;
               
-              // Show align/submit section
-              imageAlignSection.style.display = "block";
-              setAlignButtonsVisibility(true);
-              setSaveButtonVisibility(false);
-              setResultInputVisibility(false);
+              // Get the aligned image data
+              const alignedImageData = resizeCanvas.toDataURL('image/png');
+              latestAlignedImageData = alignedImageData;
               
-              // Re-enable button
-              captureImageButton.disabled = false;
-              captureImageButton.textContent = "Capture Image";
+              // Automatically submit for processing
+              captureImageButton.textContent = "Processing...";
+              submitImageForProcessing(alignedImageData, true); // true = from camera capture
             };
             
             capturedImg.onerror = (error) => {
               console.error("Failed to load image:", error);
-              alert("❌ Failed to load captured image. Please try again.");
-              cameraStreamSection.style.display = "block";
-              liveStream.src = `${BACKEND_API}/video_feed`;
               captureImageButton.disabled = false;
               captureImageButton.textContent = "Capture Image";
+              showErrorModal("Failed to Load Image", "Failed to load the captured image. Please retake the image.", true);
             };
             
             capturedImg.src = capturedImagePath;
           }, 200); // 200ms delay to ensure file is ready
         } else {
-          alert("❌ Failed to capture image. Please try again.");
           captureImageButton.disabled = false;
           captureImageButton.textContent = "Capture Image";
+          showErrorModal("Capture Failed", "Failed to capture image. Please try again.", true);
         }
       })
       .catch(error => {
         console.error("Capture error:", error);
-        alert("❌ Error occurred during image capture: " + error.message);
         captureImageButton.disabled = false;
         captureImageButton.textContent = "Capture Image";
+        showErrorModal("Capture Error", "An error occurred during image capture: " + error.message, true);
       });
   });
 
@@ -951,12 +1017,12 @@
         setSaveButtonVisibility(true);
         setResultInputVisibility(true);
       } else {
-        alert("Error processing the image. Please try again.");
+        showErrorModal("Processing Failed", "Error processing the image. Please try again.", false);
       }
     })
     .catch(error => {
       console.error("Error:", error);
-      alert("An error occurred while processing the image.");
+      showErrorModal("Processing Error", "An error occurred while processing the image. Please try again.", false);
     });
   });
 

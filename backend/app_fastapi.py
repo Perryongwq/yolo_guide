@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from typing import Optional, Dict, Any, AsyncGenerator
 from contextlib import asynccontextmanager
 import os
+import sys
 import cv2
 import pandas as pd
 import base64
@@ -28,14 +29,38 @@ import asyncio
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Paths
-UPLOAD_FOLDER = "uploads"
-PROCESSED_FOLDER = "processed"
-RESULTS_FOLDER = "results"
+# Determine if running as compiled executable or as script
+def get_base_path():
+    """Get base path for file storage - works for both script and exe"""
+    if getattr(sys, 'frozen', False):
+        # Running as compiled executable
+        # Get the directory where the executable is located
+        base_path = os.path.dirname(sys.executable)
+        logger.info(f"Running as executable. Base path: {base_path}")
+    else:
+        # Running as script
+        base_path = os.path.dirname(os.path.abspath(__file__))
+        logger.info(f"Running as script. Base path: {base_path}")
+    return base_path
+
+# Get base path
+BASE_PATH = get_base_path()
+
+# Paths - Now always relative to BASE_PATH
+UPLOAD_FOLDER = os.path.join(BASE_PATH, "uploads")
+PROCESSED_FOLDER = os.path.join(BASE_PATH, "processed")
+RESULTS_FOLDER = os.path.join(BASE_PATH, "results")
 EXCEL_FILE = os.path.join(PROCESSED_FOLDER, "measurement_results.xlsx")
+
+# Create directories if they don't exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(PROCESSED_FOLDER, exist_ok=True)
 os.makedirs(RESULTS_FOLDER, exist_ok=True)
+
+logger.info(f"Directories configured:")
+logger.info(f"  UPLOAD_FOLDER: {UPLOAD_FOLDER}")
+logger.info(f"  PROCESSED_FOLDER: {PROCESSED_FOLDER}")
+logger.info(f"  RESULTS_FOLDER: {RESULTS_FOLDER}")
 
 # Global storage for latest processing results
 latest_processing_results = {
@@ -51,6 +76,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator:
     """Manage application lifecycle"""
     # Startup
     logger.info("Application starting up...")
+    logger.info(f"Working directory: {os.getcwd()}")
+    logger.info(f"Base path: {BASE_PATH}")
     yield
     # Shutdown
     global camera
@@ -123,14 +150,14 @@ async def log_requests(request: Request, call_next):
 # Note: Static files and templates removed - frontend handles all UI
 
 # Load YOLO model for 15type only - dynamically load from models directory
-# Get the directory where this script is located
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MODELS_DIR = os.path.join(BASE_DIR, "models")
+# Get the models directory relative to BASE_PATH
+MODELS_DIR = os.path.join(BASE_PATH, "models")
 MODEL_FILENAME = "15type_model.pt"
 MODEL_PATH = os.path.join(MODELS_DIR, MODEL_FILENAME)
 
 # Validate model file exists
 if not os.path.exists(MODEL_PATH):
+    logger.error(f"Model file not found at {MODEL_PATH}")
     raise FileNotFoundError(
         f"Model file not found at {MODEL_PATH}. Please ensure the model file exists."
     )
@@ -544,9 +571,10 @@ async def save_image(request: Request):
                 status_code=400, detail=f"Image decoding failed: {str(e)}"
             )
 
-        # Save to results folder in backend directory
+        # Save to results folder - using absolute path from BASE_PATH
         result_folder = os.path.join(RESULTS_FOLDER, machine_number)
         os.makedirs(result_folder, exist_ok=True)
+        logger.info(f"Result folder created/verified: {result_folder}")
 
         # Generate timestamped filename
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -605,6 +633,7 @@ async def save_image(request: Request):
             "success": True,
             "message": "Image and result saved!",
             "excel_path": excel_path,
+            "image_path": image_path,
         }
 
     except HTTPException:
@@ -810,6 +839,7 @@ async def root():
         "service": "CT600 Vision Guide API",
         "version": "1.0.0",
         "status": "running",
+        "base_path": BASE_PATH,
         "frontend_url": "http://localhost:5001/vision-inspection",
         "endpoints": {
             "health": "/health",
@@ -830,6 +860,12 @@ async def health_check():
         "status": "healthy",
         "service": "CT600 Vision API",
         "timestamp": datetime.now().isoformat(),
+        "base_path": BASE_PATH,
+        "folders": {
+            "uploads": UPLOAD_FOLDER,
+            "processed": PROCESSED_FOLDER,
+            "results": RESULTS_FOLDER,
+        },
     }
 
 
@@ -1082,6 +1118,8 @@ async def index_post(request: Request):
 
 if __name__ == "__main__":
     logger.info("Starting FastAPI application...")
+    logger.info(f"Base path: {BASE_PATH}")
+    logger.info(f"Results folder: {RESULTS_FOLDER}")
     uvicorn.run(
         "app_fastapi:app", host="localhost", port=5000, log_level="info", reload=True
     )
