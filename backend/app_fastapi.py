@@ -1005,22 +1005,25 @@ async def index_post(request: Request):
                     "Microns per pixel too high, suggesting focus adjustment"
                 )
                 return {
-                    "show_fallback_modal": True,
-                    "reason": "Please fine tune the focus and take again.",
+                    "error": True,
+                    "error_message": "Fail to capture work guide and insertion guide",
+                    "reason": "Microns per pixel too high, suggesting focus adjustment",
                 }
         else:
-            logger.warning("cal_mark not detected, using manual mode")
+            logger.warning("cal_mark not detected")
             return {
-                "show_manual_draw_modal": True,
-                "reason": "cal_mark is not available. Draw the manual line and judge.",
+                "error": True,
+                "error_message": "Fail to capture work guide and insertion guide",
+                "reason": "cal_mark not detected",
             }
 
         # Check if both edge positions are available
         if block1_edge_y is None or block2_edge_y is None:
             logger.warning("One or more edges not detected")
             return {
-                "show_fallback_modal": True,
-                "reason": "Not able to detect one or more edges. Please draw manual lines and submit.",
+                "error": True,
+                "error_message": "Fail to capture work guide and insertion guide",
+                "reason": "One or more edges not detected",
             }
 
         # Calculate measurements
