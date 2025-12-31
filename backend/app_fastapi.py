@@ -149,21 +149,41 @@ async def log_requests(request: Request, call_next):
 
 # Note: Static files and templates removed - frontend handles all UI
 
-# Load YOLO model for 15type only - dynamically load from models directory
+# Load YOLO models for both 15type and 18type - dynamically load from models directory
 # Get the models directory relative to BASE_PATH
 MODELS_DIR = os.path.join(BASE_PATH, "models")
-MODEL_FILENAME = "15type_model.pt"
-MODEL_PATH = os.path.join(MODELS_DIR, MODEL_FILENAME)
+MODEL_15TYPE_FILENAME = "15type_model.pt"
+MODEL_18TYPE_FILENAME = "18type_model.pt"
+MODEL_15TYPE_PATH = os.path.join(MODELS_DIR, MODEL_15TYPE_FILENAME)
+MODEL_18TYPE_PATH = os.path.join(MODELS_DIR, MODEL_18TYPE_FILENAME)
 
-# Validate model file exists
-if not os.path.exists(MODEL_PATH):
-    logger.error(f"Model file not found at {MODEL_PATH}")
+# Validate model files exist
+if not os.path.exists(MODEL_15TYPE_PATH):
+    logger.error(f"15type model file not found at {MODEL_15TYPE_PATH}")
     raise FileNotFoundError(
-        f"Model file not found at {MODEL_PATH}. Please ensure the model file exists."
+        f"Model file not found at {MODEL_15TYPE_PATH}. Please ensure the model file exists."
     )
 
-logger.info(f"Loading YOLO model from: {MODEL_PATH}")
-model = YOLO(MODEL_PATH)
+if not os.path.exists(MODEL_18TYPE_PATH):
+    logger.error(f"18type model file not found at {MODEL_18TYPE_PATH}")
+    raise FileNotFoundError(
+        f"Model file not found at {MODEL_18TYPE_PATH}. Please ensure the model file exists."
+    )
+
+# Load both models
+logger.info(f"Loading 15type YOLO model from: {MODEL_15TYPE_PATH}")
+model_15type = YOLO(MODEL_15TYPE_PATH)
+
+logger.info(f"Loading 18type YOLO model from: {MODEL_18TYPE_PATH}")
+model_18type = YOLO(MODEL_18TYPE_PATH)
+
+# Store models in a dictionary for easy access
+models = {
+    "15type": model_15type,
+    "18type": model_18type,
+}
+
+# Class names for each model type
 class_names_15type = [
     "block1_edge15",
     "block2_edge15",
@@ -171,6 +191,23 @@ class_names_15type = [
     "block2_15",
     "cal_mark",
 ]
+
+class_names_18type = [
+    "block1_15",
+    "block1_edge15",
+    "block2_15",
+    "block2_edge15",
+    "cal_mark",
+]
+
+# Store class names in a dictionary for easy access
+class_names = {
+    "15type": class_names_15type,
+    "18type": class_names_18type,
+}
+
+# Keep backward compatibility - default to 15type model
+model = model_15type
 
 # Constants
 MICRONS_PER_PIXEL = 2.3
@@ -881,8 +918,9 @@ async def index_post(request: Request):
                 if os.path.isfile(file_path):
                     os.unlink(file_path)
 
-        # Try to get the aligned_image from JSON or form data
+        # Try to get the aligned_image and item_type from JSON or form data
         aligned_image_data = None
+        item_type = "15type"  # Default to 15type for backward compatibility
         try:
             # First try JSON data
             content_type = request.headers.get("content-type", "")
@@ -890,12 +928,14 @@ async def index_post(request: Request):
                 json_data = await request.json()
                 if json_data:
                     aligned_image_data = json_data.get("aligned_image")
-                    logger.info("Successfully retrieved aligned_image from JSON data")
+                    item_type = json_data.get("item_type", "15type")
+                    logger.info(f"Successfully retrieved aligned_image from JSON data, item_type: {item_type}")
             else:
                 # Fallback to form data
                 form_data = await request.form()
                 aligned_image_data = form_data.get("aligned_image")
-                logger.info("Successfully retrieved aligned_image from form data")
+                item_type = form_data.get("item_type", "15type")
+                logger.info(f"Successfully retrieved aligned_image from form data, item_type: {item_type}")
         except Exception as parse_error:
             logger.error(f"Failed to parse request data: {parse_error}")
             # If both fail, try to get raw data
@@ -946,8 +986,17 @@ async def index_post(request: Request):
                 status_code=400, detail=f"Failed to decode image: {str(e)}"
             )
 
+        # Validate item_type and get the appropriate model and class names
+        if item_type not in models:
+            logger.warning(f"Invalid item_type: {item_type}, defaulting to 15type")
+            item_type = "15type"
+        
+        selected_model = models[item_type]
+        selected_class_names = class_names[item_type]
+        logger.info(f"Using model: {item_type}, with class names: {selected_class_names}")
+
         # YOLO prediction
-        results = model.predict(source=image, conf=0.25, save=False)
+        results = selected_model.predict(source=image, conf=0.25, save=False)
 
         block1_edge_y = block2_edge_y = None
         block1_box_y = block2_box_y = None
@@ -956,10 +1005,11 @@ async def index_post(request: Request):
 
         for box, cls in zip(results[0].boxes.xywh, results[0].boxes.cls):
             x_center, y_center, width, height = box
-            label = class_names_15type[int(cls.item())]
+            label = selected_class_names[int(cls.item())]
             logger.info(f"[DEBUG] cls: {cls}, index: {int(cls.item())}, label: {label}")
 
-            if label == "block1_edge15":
+            # Handle both 15type and 18type labels
+            if label in ["block1_edge15"]:
                 edge_y = int(y_center + height / 2)
                 block1_edge_y = edge_y + (BLOCK1_OFFSET / microns_per_pixel)
                 cv2.line(
@@ -970,7 +1020,7 @@ async def index_post(request: Request):
                     2,
                 )
 
-            elif label == "block2_edge15":
+            elif label in ["block2_edge15"]:
                 edge_y = int(y_center + height / 2)
                 block2_edge_y = edge_y + (BLOCK2_OFFSET / microns_per_pixel)
                 cv2.line(
@@ -981,10 +1031,10 @@ async def index_post(request: Request):
                     2,
                 )
 
-            elif label == "block1_15":
+            elif label in ["block1_15"]:
                 block1_box_y = int(y_center + height / 2)
 
-            elif label == "block2_15":
+            elif label in ["block2_15"]:
                 block2_box_y = int(y_center + height / 2)
 
             elif label == "cal_mark":
@@ -1005,22 +1055,25 @@ async def index_post(request: Request):
                     "Microns per pixel too high, suggesting focus adjustment"
                 )
                 return {
-                    "show_fallback_modal": True,
-                    "reason": "Please fine tune the focus and take again.",
+                    "error": True,
+                    "error_message": "Fail to capture work guide and insertion guide",
+                    "reason": "Microns per pixel too high, suggesting focus adjustment",
                 }
         else:
-            logger.warning("cal_mark not detected, using manual mode")
+            logger.warning("cal_mark not detected")
             return {
-                "show_manual_draw_modal": True,
-                "reason": "cal_mark is not available. Draw the manual line and judge.",
+                "error": True,
+                "error_message": "Fail to capture work guide and insertion guide",
+                "reason": "cal_mark not detected",
             }
 
         # Check if both edge positions are available
         if block1_edge_y is None or block2_edge_y is None:
             logger.warning("One or more edges not detected")
             return {
-                "show_fallback_modal": True,
-                "reason": "Not able to detect one or more edges. Please draw manual lines and submit.",
+                "error": True,
+                "error_message": "Fail to capture work guide and insertion guide",
+                "reason": "One or more edges not detected",
             }
 
         # Calculate measurements

@@ -260,8 +260,7 @@
             border-radius: 4px;
         }
 
-        #align-canvas,
-        #manual-draw-canvas {
+        #align-canvas {
             border: 2px solid #007bff;
             border-radius: 4px;
             background-color: #f5f5f5;
@@ -506,6 +505,7 @@
               <option value="03type">03 Type</option>
               <option value="32type">32 Type</option>
               <option value="15type" selected>15 Type</option>
+              <option value="18type">18 Type</option>
             </select>
           </div>
           
@@ -564,12 +564,6 @@
             <canvas id="align-canvas"></canvas><br><br>
           </div>
 
-          <!-- Manual Drawing Section -->
-          <div id="manual-draw-section" class="image-section" style="display: none;">
-            <h3>Draw Bottom Edges (15mm)</h3>
-            <canvas id="manual-draw-canvas" width="1600" height="900"></canvas><br><br>
-            <button id="submit-manual-lines" class="vision-button">Submit Lines</button>
-          </div>
 
           <!-- Display the Processed Image -->
           <div id="processed-image-section" class="image-section" style="display: none;">
@@ -579,25 +573,13 @@
           </div>
         </div>
 
-        <!-- Fallback Option Modal -->
-        <div id="fallback-modal" class="modal-overlay">
-          <div class="modal-content">
-            <h2 id="fallback-modal-title">Edges Not Detected</h2>
-            <p id="fallback-modal-message">Choose how you want to proceed:</p>
-            <div class="button-group">
-              <button onclick="handleManualDraw()" class="vision-button">1. Draw Edges Manually</button>
-              <button onclick="handleAutoFallback()" class="vision-button">2. Use Auto Fallback</button>
-            </div>
-          </div>
-        </div>
-
         <!-- Error Modal for Processing Failures -->
         <div id="error-modal" class="modal-overlay">
           <div class="modal-content">
             <h2 id="error-modal-title">❌ Processing Failed</h2>
             <p id="error-modal-message">Failed to process the image. Please try again.</p>
             <div class="button-group">
-              <button onclick="handleRetakeImage()" class="vision-button" style="background-color: #dc3545;">Retake Image</button>
+              <button onclick="handleConnectAndCapture()" class="vision-button" style="background-color: #dc3545;">Connect Camera & Capture Image</button>
             </div>
           </div>
         </div>
@@ -734,14 +716,10 @@
         captureImageButton.textContent = "Capture Image";
       }
       
-      if (data.show_fallback_modal) {
-        const title = data.reason || "Edges Not Detected";
-        document.getElementById("fallback-modal-title").textContent = title;
-        document.getElementById("fallback-modal-message").textContent = "Choose how you want to proceed:";
-        document.getElementById("fallback-modal").style.display = "flex";
-      } else if (data.show_manual_draw_modal) {
-        document.getElementById("fallback-modal-title").textContent = data.reason || "Manual Mode Required";
-        document.getElementById("fallback-modal").style.display = "flex";
+      if (data.error) {
+        // Show error modal with specific message
+        const errorMessage = data.error_message || "Fail to capture work guide and insertion guide";
+        showErrorModal("❌ Capture Failed", errorMessage, fromCameraCapture);
       } else if (data.processed_image_url) {
         processedImage.src = `${BACKEND_API}${data.processed_image_url}`;
         processedImageSection.style.display = 'block';
@@ -772,10 +750,9 @@
     document.getElementById("error-modal").style.display = "flex";
   }
 
-  // Function to handle retake image - reconnects camera and enables live mode
-  function handleRetakeImage() {
+  // Function to handle connect camera and capture image
+  function handleConnectAndCapture() {
     const errorModal = document.getElementById("error-modal");
-    const fromCamera = errorModal.getAttribute("data-from-camera") === "true";
     
     // Hide error modal
     errorModal.style.display = "none";
@@ -784,7 +761,6 @@
     imageCropSection.style.display = "none";
     imageAlignSection.style.display = "none";
     processedImageSection.style.display = "none";
-    document.getElementById("manual-draw-section").style.display = "none";
     setCropButtonVisibility(false);
     setAlignButtonsVisibility(false);
     setSaveButtonVisibility(false);
@@ -1002,14 +978,10 @@
     })
     .then(response => response.json())
     .then(data => {
-      if (data.show_fallback_modal) {
-        const title = data.reason || "Edges Not Detected";
-        document.getElementById("fallback-modal-title").textContent = title;
-        document.getElementById("fallback-modal-message").textContent = "Choose how you want to proceed:";
-        document.getElementById("fallback-modal").style.display = "flex";
-      } else if (data.show_manual_draw_modal) {
-        document.getElementById("fallback-modal-title").textContent = data.reason || "Manual Mode Required";
-        document.getElementById("fallback-modal").style.display = "flex";
+      if (data.error) {
+        // Show error modal with specific message
+        const errorMessage = data.error_message || "Fail to capture work guide and insertion guide";
+        showErrorModal("❌ Capture Failed", errorMessage, false);
       } else if (data.processed_image_url) {
         processedImage.src = `${BACKEND_API}${data.processed_image_url}`;
         imageAlignSection.style.display = 'none';
@@ -1027,143 +999,6 @@
     });
   });
 
-  // Manual draw functions
-  const manualCanvas = document.getElementById("manual-draw-canvas");
-  const manualCtx = manualCanvas.getContext("2d");
-  let manualLines = [];
-  let isDrawing = false;
-  let startX = 0;
-  let startY = 0;
-  let currentLineColor = "blue";
-
-  function handleManualDraw() {
-    if (!latestAlignedImageData || !latestAlignedImageData.startsWith("data:image")) {
-      alert("Aligned image not available. Please retry the process.");
-      return;
-    }
-
-    const image = new Image();
-    image.src = latestAlignedImageData;
-
-    image.onload = () => {
-      manualCanvas.width = image.width;
-      manualCanvas.height = image.height;
-      manualCtx.clearRect(0, 0, manualCanvas.width, manualCanvas.height);
-      manualCtx.drawImage(image, 0, 0);
-    };
-
-    manualLines = [];
-    currentLineColor = "blue";
-
-    document.getElementById("fallback-modal").style.display = "none";
-    imageAlignSection.style.display = "none";
-    setAlignButtonsVisibility(false);
-    setSaveButtonVisibility(false);
-    document.getElementById("manual-draw-section").style.display = "block";
-  }
-
-  function handleAutoFallback() {
-    document.getElementById("fallback-modal").style.display = "none";
-
-    if (!latestAlignedImageData || !latestAlignedImageData.startsWith("data:image")) {
-      alert("Aligned image not available for auto fallback.");
-      return;
-    }
-
-    const itemType = document.getElementById("item_type").value;
-
-    fetch(`${BACKEND_API}/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        aligned_image: latestAlignedImageData,
-        item_type: itemType
-      })
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.show_fallback_modal) {
-        const title = data.reason || "Edges Not Detected";
-        document.getElementById("fallback-modal-title").textContent = title;
-        document.getElementById("fallback-modal").style.display = "flex";
-      } else if (data.processed_image_url) {
-        processedImage.src = `${BACKEND_API}${data.processed_image_url}`;
-        imageAlignSection.style.display = 'none';
-        setAlignButtonsVisibility(false);
-        processedImageSection.style.display = 'block';
-        setSaveButtonVisibility(true);
-        setResultInputVisibility(true);
-      } else {
-        alert("Error processing the image. Please try again.");
-      }
-    });
-  }
-
-  manualCanvas.addEventListener("mousedown", (e) => {
-    if (manualLines.length >= 2) return;
-    isDrawing = true;
-    const rect = manualCanvas.getBoundingClientRect();
-    startX = e.clientX - rect.left;
-    startY = e.clientY - rect.top;
-  });
-
-  manualCanvas.addEventListener("mouseup", (e) => {
-    if (!isDrawing || manualLines.length >= 2) return;
-    isDrawing = false;
-    const rect = manualCanvas.getBoundingClientRect();
-    const endX = e.clientX - rect.left;
-    const endY = e.clientY - rect.top;
-
-    manualCtx.beginPath();
-    manualCtx.moveTo(startX, startY);
-    manualCtx.lineTo(endX, endY);
-    manualCtx.strokeStyle = currentLineColor;
-    manualCtx.lineWidth = 2;
-    manualCtx.stroke();
-
-    manualLines.push({ x1: startX, y1: startY, x2: endX, y2: endY });
-
-    currentLineColor = manualLines.length === 1 ? "yellow" : currentLineColor;
-  });
-
-  document.getElementById("submit-manual-lines").addEventListener("click", () => {
-    if (manualLines.length !== 2) {
-      alert("Please draw exactly two lines.");
-      return;
-    }
-
-    const itemType = document.getElementById("item_type").value;
-
-    fetch(`${BACKEND_API}/manual-submit`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        aligned_image: latestAlignedImageData,
-        manual_lines: manualLines,
-        item_type: itemType
-      })
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.processed_image_url) {
-        document.getElementById("manual-draw-section").style.display = "none";
-        processedImage.src = `${BACKEND_API}${data.processed_image_url}`;
-        processedImageSection.style.display = "block";
-        setSaveButtonVisibility(true);
-        setResultInputVisibility(true);
-      } else {
-        alert("Error processing manual lines. Try again.");
-      }
-    })
-    .catch(err => {
-      console.error("Manual submit failed:", err);
-      alert("Something went wrong during manual line submission.");
-    });
-  });
 
   // Function to format machine number with "ct" prefix
   function formatMachineNumber(input) {
