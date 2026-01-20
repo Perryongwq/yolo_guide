@@ -152,8 +152,8 @@ async def log_requests(request: Request, call_next):
 # Load YOLO models for both 15type and 18type - dynamically load from models directory
 # Get the models directory relative to BASE_PATH
 MODELS_DIR = os.path.join(BASE_PATH, "models")
-MODEL_15TYPE_FILENAME = "15type_model.pt"
-MODEL_18TYPE_FILENAME = "18type_model.pt"
+MODEL_15TYPE_FILENAME = "15standard_model.pt"
+MODEL_18TYPE_FILENAME = "18standard_model.pt"
 MODEL_15TYPE_PATH = os.path.join(MODELS_DIR, MODEL_15TYPE_FILENAME)
 MODEL_18TYPE_PATH = os.path.join(MODELS_DIR, MODEL_18TYPE_FILENAME)
 
