@@ -1166,16 +1166,16 @@ async def index_post(request: Request):
         cv2.putText(
             image,
             f"{y_diff_microns:.2f} microns",
-            (text_x - 100, text_y),
+            (text_x + 300, text_y),
             cv2.FONT_HERSHEY_SIMPLEX,
-            0.8,
+            1.0,
             (255, 255, 255),
             2,
         )
         cv2.putText(
             image,
             f"Judgement: {judgement}",
-            (text_x - 100, text_y + 40),
+            (text_x + 300, text_y + 40),
             cv2.FONT_HERSHEY_SIMPLEX,
             1.0,
             judgement_color,
