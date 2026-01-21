@@ -66,11 +66,10 @@
         .mdl-layout__drawer .form-section {
             display: flex;
             flex-direction: column;
-            gap: 15px;
-            padding: 15px;
+            gap: 7px;
+            padding: 0 15px 15px 15px;
             overflow-y: auto;
             max-height: calc(100vh - 180px);
-            margin-top: 10px;
         }
 
         .mdl-layout__drawer .form-group {
@@ -503,9 +502,17 @@
             <label for="item_type">Select Item Type:</label>
             <select id="item_type" name="item_type">
               <option value="03type">03 Type</option>
-              <option value="32type">32 Type</option>
               <option value="15type" selected>15 Type</option>
               <option value="18type">18 Type</option>
+              <option value="32type">32 Type</option>
+            </select>
+          </div>
+          
+          <div class="form-group" id="pitch-selection-group">
+            <label for="pitch">Select Pitch:</label>
+            <select id="pitch" name="pitch">
+              <option value="standard" selected>Standard</option>
+              <option value="narrow">Narrow</option>
             </select>
           </div>
           
@@ -615,6 +622,9 @@
   const submitImageButton = document.getElementById('submit-image');
   const saveImageButton = document.getElementById('save-image');
   const resultInputs = document.getElementById('result-inputs');
+  const itemTypeSelect = document.getElementById('item_type');
+  const pitchSelect = document.getElementById('pitch');
+  const pitchSelectionGroup = document.getElementById('pitch-selection-group');
   
   let cropper;
   let alignContext = alignCanvas.getContext('2d');
@@ -649,6 +659,23 @@
   setAlignButtonsVisibility(false);
   setSaveButtonVisibility(false);
   setResultInputVisibility(false);
+
+  // Function to toggle pitch selection visibility based on item type
+  function updatePitchSelectionVisibility() {
+    const itemType = itemTypeSelect.value;
+    // Show pitch selection for 03, 15, 18 types, hide for 32type
+    if (itemType === "03type" || itemType === "15type" || itemType === "18type") {
+      pitchSelectionGroup.style.display = "flex";
+    } else {
+      pitchSelectionGroup.style.display = "none";
+    }
+  }
+
+  // Initialize pitch selection visibility on page load
+  updatePitchSelectionVisibility();
+
+  // Update pitch selection visibility when item type changes
+  itemTypeSelect.addEventListener("change", updatePitchSelectionVisibility);
 
   // Image compression function
   function compressImage(file, maxWidthHeight, quality, callback) {
@@ -685,6 +712,9 @@
   // Helper function to submit image directly for processing
   function submitImageForProcessing(imageDataUrl, fromCameraCapture = false) {
     const itemType = document.querySelector('select[name="item_type"]').value;
+    const pitch = (itemType === "03type" || itemType === "15type" || itemType === "18type") 
+      ? document.querySelector('select[name="pitch"]').value 
+      : "standard";
     latestAlignedImageData = imageDataUrl;
 
     // Hide crop and align sections
@@ -700,7 +730,8 @@
       },
       body: JSON.stringify({
         aligned_image: imageDataUrl,
-        item_type: itemType
+        item_type: itemType,
+        pitch: pitch
       })
     })
     .then(response => {
@@ -965,6 +996,9 @@
     const alignedImage = alignCanvas.toDataURL();
     latestAlignedImageData = alignedImage;
     const itemType = document.querySelector('select[name="item_type"]').value;
+    const pitch = (itemType === "03type" || itemType === "15type" || itemType === "18type") 
+      ? document.querySelector('select[name="pitch"]').value 
+      : "standard";
 
     fetch(`${BACKEND_API}/`, {
       method: 'POST',
@@ -973,7 +1007,8 @@
       },
       body: JSON.stringify({
         aligned_image: alignedImage,
-        item_type: itemType
+        item_type: itemType,
+        pitch: pitch
       })
     })
     .then(response => response.json())

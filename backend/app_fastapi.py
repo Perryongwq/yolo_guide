@@ -149,41 +149,22 @@ async def log_requests(request: Request, call_next):
 
 # Note: Static files and templates removed - frontend handles all UI
 
-# Load YOLO models for both 15type and 18type - dynamically load from models directory
+# Load YOLO models dynamically based on item_type and pitch
 # Get the models directory relative to BASE_PATH
 MODELS_DIR = os.path.join(BASE_PATH, "models")
-MODEL_15TYPE_FILENAME = "15standard_model.pt"
-MODEL_18TYPE_FILENAME = "18standard_model.pt"
-MODEL_15TYPE_PATH = os.path.join(MODELS_DIR, MODEL_15TYPE_FILENAME)
-MODEL_18TYPE_PATH = os.path.join(MODELS_DIR, MODEL_18TYPE_FILENAME)
 
-# Validate model files exist
-if not os.path.exists(MODEL_15TYPE_PATH):
-    logger.error(f"15type model file not found at {MODEL_15TYPE_PATH}")
-    raise FileNotFoundError(
-        f"Model file not found at {MODEL_15TYPE_PATH}. Please ensure the model file exists."
-    )
-
-if not os.path.exists(MODEL_18TYPE_PATH):
-    logger.error(f"18type model file not found at {MODEL_18TYPE_PATH}")
-    raise FileNotFoundError(
-        f"Model file not found at {MODEL_18TYPE_PATH}. Please ensure the model file exists."
-    )
-
-# Load both models
-logger.info(f"Loading 15type YOLO model from: {MODEL_15TYPE_PATH}")
-model_15type = YOLO(MODEL_15TYPE_PATH)
-
-logger.info(f"Loading 18type YOLO model from: {MODEL_18TYPE_PATH}")
-model_18type = YOLO(MODEL_18TYPE_PATH)
-
-# Store models in a dictionary for easy access
-models = {
-    "15type": model_15type,
-    "18type": model_18type,
-}
+# Dictionary to cache loaded models (key: "item_type_pitch", e.g., "15type_standard")
+loaded_models = {}
 
 # Class names for each model type
+class_names_03type = [
+    "block1_edge15",
+    "block2_edge15",
+    "block1_15",
+    "block2_15",
+    "cal_mark",
+]
+
 class_names_15type = [
     "block1_edge15",
     "block2_edge15",
@@ -202,12 +183,56 @@ class_names_18type = [
 
 # Store class names in a dictionary for easy access
 class_names = {
+    "03type": class_names_03type,
     "15type": class_names_15type,
     "18type": class_names_18type,
 }
 
-# Keep backward compatibility - default to 15type model
-model = model_15type
+def get_model(item_type: str, pitch: str = "standard") -> YOLO:
+    """
+    Get or load a YOLO model based on item_type and pitch.
+    Models are cached after first load for better performance.
+    
+    Args:
+        item_type: Item type (e.g., "03type", "15type", "18type", "32type")
+        pitch: Pitch type (e.g., "standard", "narrow"). Use None or "standard" for types that don't support pitch.
+    
+    Returns:
+        YOLO model instance
+    """
+    # For types that don't support pitch (e.g., 32type), use item_type only
+    if item_type == "32type" or pitch is None:
+        model_key = item_type
+        model_filename = "32type_model.pt"
+    else:
+        # For types that support pitch, construct key and filename
+        model_key = f"{item_type}_{pitch}"
+        # Extract number from item_type (e.g., "15type" -> "15")
+        type_number = item_type.replace("type", "")
+        model_filename = f"{type_number}{pitch}_model.pt"
+    
+    # Check if model is already loaded
+    if model_key in loaded_models:
+        logger.info(f"Using cached model: {model_key}")
+        return loaded_models[model_key]
+    
+    # Load model
+    model_path = os.path.join(MODELS_DIR, model_filename)
+    
+    if not os.path.exists(model_path):
+        logger.error(f"Model file not found at {model_path}")
+        raise FileNotFoundError(
+            f"Model file not found at {model_path}. Please ensure the model file exists."
+        )
+    
+    logger.info(f"Loading YOLO model from: {model_path}")
+    model = YOLO(model_path)
+    
+    # Cache the loaded model
+    loaded_models[model_key] = model
+    logger.info(f"Model cached with key: {model_key}")
+    
+    return model
 
 # Constants
 MICRONS_PER_PIXEL = 2.3
@@ -918,9 +943,10 @@ async def index_post(request: Request):
                 if os.path.isfile(file_path):
                     os.unlink(file_path)
 
-        # Try to get the aligned_image and item_type from JSON or form data
+        # Try to get the aligned_image, item_type, and pitch from JSON or form data
         aligned_image_data = None
         item_type = "15type"  # Default to 15type for backward compatibility
+        pitch = "standard"  # Default to standard for backward compatibility
         try:
             # First try JSON data
             content_type = request.headers.get("content-type", "")
@@ -929,13 +955,15 @@ async def index_post(request: Request):
                 if json_data:
                     aligned_image_data = json_data.get("aligned_image")
                     item_type = json_data.get("item_type", "15type")
-                    logger.info(f"Successfully retrieved aligned_image from JSON data, item_type: {item_type}")
+                    pitch = json_data.get("pitch", "standard")
+                    logger.info(f"Successfully retrieved aligned_image from JSON data, item_type: {item_type}, pitch: {pitch}")
             else:
                 # Fallback to form data
                 form_data = await request.form()
                 aligned_image_data = form_data.get("aligned_image")
                 item_type = form_data.get("item_type", "15type")
-                logger.info(f"Successfully retrieved aligned_image from form data, item_type: {item_type}")
+                pitch = form_data.get("pitch", "standard")
+                logger.info(f"Successfully retrieved aligned_image from form data, item_type: {item_type}, pitch: {pitch}")
         except Exception as parse_error:
             logger.error(f"Failed to parse request data: {parse_error}")
             # If both fail, try to get raw data
@@ -987,13 +1015,38 @@ async def index_post(request: Request):
             )
 
         # Validate item_type and get the appropriate model and class names
-        if item_type not in models:
+        # For types that don't support pitch (e.g., 32type), ignore pitch parameter
+        if item_type == "32type":
+            pitch = None  # 32type doesn't use pitch
+        
+        # Validate pitch for types that require it
+        if item_type in ["03type", "15type", "18type"]:
+            if pitch not in ["standard", "narrow"]:
+                logger.warning(f"Invalid pitch: {pitch} for {item_type}, defaulting to standard")
+                pitch = "standard"
+        
+        # Validate item_type and get class names
+        if item_type not in class_names:
             logger.warning(f"Invalid item_type: {item_type}, defaulting to 15type")
             item_type = "15type"
+            pitch = "standard"
         
-        selected_model = models[item_type]
+        # Get the model using lazy loading
+        try:
+            # For 32type, don't pass pitch (or pass None)
+            if item_type == "32type":
+                selected_model = get_model(item_type, None)
+            else:
+                selected_model = get_model(item_type, pitch)
+        except FileNotFoundError as e:
+            logger.error(f"Model file not found: {e}")
+            raise HTTPException(status_code=404, detail=f"Model file not found: {str(e)}")
+        except Exception as e:
+            logger.error(f"Error loading model: {e}")
+            raise HTTPException(status_code=500, detail=f"Error loading model: {str(e)}")
+        
         selected_class_names = class_names[item_type]
-        logger.info(f"Using model: {item_type}, with class names: {selected_class_names}")
+        logger.info(f"Using model: {item_type} with pitch: {pitch}, class names: {selected_class_names}")
 
         # YOLO prediction
         results = selected_model.predict(source=image, conf=0.25, save=False)
