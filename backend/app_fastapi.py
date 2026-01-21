@@ -663,6 +663,7 @@ async def save_image(request: Request):
             "Machine Number": machine_number.upper(),
             "Human Judgement": human_judgement,
             "Saved Path": image_path,
+            "Microns per Pixel": latest_processing_results.get("microns_per_pixel", "N/A"),
         }
 
         # Create machine-specific Excel file
@@ -847,6 +848,7 @@ async def manual_submit(request: Request):
                         "Y-Difference (microns)": y_diff_microns,
                         "Judgment": judgment,
                         "Checked Date and Time": current_datetime,
+                        "Microns per Pixel": "Manual Entry",
                     }
                 ]
             )
@@ -1148,6 +1150,17 @@ async def index_post(request: Request):
             judgment_color = (0, 0, 255)
 
         # Add annotations
+        # Display microns/px on top left
+        cv2.putText(
+            image,
+            f"Microns/px: {microns_per_pixel:.2f}",
+            (10, 40),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            1.0,
+            (0, 255, 255),  # Yellow color
+            2,
+        )
+        
         text_x = image.shape[1] // 2 + 250  # Shifted to the right
         text_y = int((block1_edge_y + block2_edge_y) / 2)
         cv2.putText(
@@ -1189,6 +1202,8 @@ async def index_post(request: Request):
             "y_diff_microns": round(y_diff_microns, 2),
             "judgment": judgment,
             "processed_timestamp": current_datetime,
+            "microns_per_pixel": round(microns_per_pixel, 2),
+            "calibration_marker_width_px": round(calibration_marker_width_px, 2),
         }
         logger.info(f"Stored processing results: {latest_processing_results}")
 
@@ -1201,6 +1216,7 @@ async def index_post(request: Request):
                         "Y-Difference (microns)": y_diff_microns,
                         "Judgment": judgment,
                         "Checked Date and Time": current_datetime,
+                        "Microns per Pixel": round(microns_per_pixel, 2),
                     }
                 ]
             )
@@ -1213,6 +1229,8 @@ async def index_post(request: Request):
             "processed_image_url": f"/processed/processed_image.png",
             "show_final_confirm_popup": True,
             "final_message": "Please confirm visually for guide position.",
+            "microns_per_pixel": round(microns_per_pixel, 2),
+            "calibration_marker_width_px": round(calibration_marker_width_px, 4),
         }
 
     except HTTPException:
