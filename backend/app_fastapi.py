@@ -65,7 +65,7 @@ logger.info(f"  RESULTS_FOLDER: {RESULTS_FOLDER}")
 # Global storage for latest processing results
 latest_processing_results = {
     "y_diff_microns": None,
-    "judgment": None,
+    "judgement": None,
     "processed_timestamp": None,
 }
 
@@ -241,7 +241,7 @@ BLOCK2_OFFSET = 0.0
 MEASUREMENT_OFFSET_MICRONS = (
     5.0  # Offset to apply to final measurement (e.g., +5 to correct camera calibration)
 )
-judgment_criteria = {"good": 10, "acceptable": 20}
+judgement_criteria = {"good": 10, "acceptable": 20}
 
 # Camera setup - Initialize as None for lazy loading
 camera = None
@@ -651,14 +651,14 @@ async def save_image(request: Request):
 
         # Get the latest processing results
         y_diff = latest_processing_results.get("y_diff_microns", "N/A")
-        judgment = latest_processing_results.get("judgment", "N/A")
+        judgement = latest_processing_results.get("judgement", "N/A")
 
         # Prepare new row with all required information
         new_row = {
             "Username": username,
             "Image Name": image_filename,
             "Y-Difference (microns)": y_diff,
-            "AI Judgment": judgment,
+            "AI Judgement": judgement,
             "Checked Date and Time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "Machine Number": machine_number.upper(),
             "Human Judgement": human_judgement,
@@ -766,16 +766,16 @@ async def manual_submit(request: Request):
 
         current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # Keep judgment on magnitude (unchanged logic)
+        # Keep judgement on magnitude (unchanged logic)
         if y_diff_microns < 0:
-            judgment = "Good"
-            judgment_color = (0, 255, 0)
+            judgement = "Good"
+            judgement_color = (0, 255, 0)
         elif 0 <= y_diff_microns <= 10:
-            judgment = "Acceptable"
-            judgment_color = (0, 165, 255)
+            judgement = "Acceptable"
+            judgement_color = (0, 165, 255)
         else:
-            judgment = "No Good"
-            judgment_color = (0, 0, 255)
+            judgement = "No Good"
+            judgement_color = (0, 0, 255)
 
         # Annotations
         mid_y = int((y1 + y2) / 2)
@@ -791,11 +791,11 @@ async def manual_submit(request: Request):
         )
         cv2.putText(
             image,
-            f"Judgment: {judgment}",
+            f"Judgement: {judgement}",
             (text_x - 50, mid_y + 40),
             cv2.FONT_HERSHEY_SIMPLEX,
             1.0,
-            judgment_color,
+            judgement_color,
             2,
         )
         cv2.putText(
@@ -809,7 +809,7 @@ async def manual_submit(request: Request):
         )
         cv2.putText(
             image,
-            "Manual Judgment",
+            "Manual Judgement",
             (text_x - 120, mid_y + 80),
             cv2.FONT_HERSHEY_SIMPLEX,
             1.0,
@@ -834,7 +834,7 @@ async def manual_submit(request: Request):
         global latest_processing_results
         latest_processing_results = {
             "y_diff_microns": round(y_diff_microns, 2),
-            "judgment": judgment,
+            "judgement": judgement,
             "processed_timestamp": current_datetime,
         }
         logger.info(f"Stored processing results: {latest_processing_results}")
@@ -846,16 +846,16 @@ async def manual_submit(request: Request):
                     {
                         "Image Name": "manual_drawn_image.png",
                         "Y-Difference (microns)": y_diff_microns,
-                        "Judgment": judgment,
+                        "Judgement": judgement,
                         "Checked Date and Time": current_datetime,
                         "Microns per Pixel": "Manual Entry",
                     }
                 ]
             )
             df.to_excel(EXCEL_FILE, index=False)
-            logger.info("Manual judgment saved to Excel")
+            logger.info("Manual judgement saved to Excel")
         except Exception as e:
-            logger.error(f"Failed to save manual judgment to Excel: {e}")
+            logger.error(f"Failed to save manual judgement to Excel: {e}")
 
         return {"processed_image_url": f"/processed/processed_image.png"}
 
@@ -1138,16 +1138,16 @@ async def index_post(request: Request):
         ) + MEASUREMENT_OFFSET_MICRONS
         current_datetime = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # Judgment logic
-        if y_diff_microns < judgment_criteria["good"]:
-            judgment = "Good"
-            judgment_color = (0, 255, 0)
-        elif y_diff_microns < judgment_criteria["acceptable"]:
-            judgment = "Acceptable"
-            judgment_color = (0, 165, 255)
+        # Judgement logic
+        if y_diff_microns < judgement_criteria["good"]:
+            judgement = "Good"
+            judgement_color = (0, 255, 0)
+        elif y_diff_microns < judgement_criteria["acceptable"]:
+            judgement = "Acceptable"
+            judgement_color = (0, 165, 255)
         else:
-            judgment = "No Good"
-            judgment_color = (0, 0, 255)
+            judgement = "No Good"
+            judgement_color = (0, 0, 255)
 
         # Add annotations
         # Display microns/px on top left
@@ -1174,11 +1174,11 @@ async def index_post(request: Request):
         )
         cv2.putText(
             image,
-            f"Judgment: {judgment}",
+            f"Judgement: {judgement}",
             (text_x - 100, text_y + 40),
             cv2.FONT_HERSHEY_SIMPLEX,
             1.0,
-            judgment_color,
+            judgement_color,
             2,
         )
         cv2.putText(
@@ -1200,7 +1200,7 @@ async def index_post(request: Request):
         global latest_processing_results
         latest_processing_results = {
             "y_diff_microns": round(y_diff_microns, 2),
-            "judgment": judgment,
+            "judgement": judgement,
             "processed_timestamp": current_datetime,
             "microns_per_pixel": round(microns_per_pixel, 2),
             "calibration_marker_width_px": round(calibration_marker_width_px, 2),
@@ -1214,7 +1214,7 @@ async def index_post(request: Request):
                     {
                         "Image Name": "aligned_image.png",
                         "Y-Difference (microns)": y_diff_microns,
-                        "Judgment": judgment,
+                        "Judgement": judgement,
                         "Checked Date and Time": current_datetime,
                         "Microns per Pixel": round(microns_per_pixel, 2),
                     }
