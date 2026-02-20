@@ -67,3 +67,4 @@ DOCKER_INSTRUCTIONS.md
 # backend/models/*.pth
 
 dist.zip
+testimages/

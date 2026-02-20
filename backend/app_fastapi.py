@@ -158,10 +158,10 @@ loaded_models = {}
 
 # Class names for each model type
 class_names_03type = [
-    "block1_edge15",
-    "block2_edge15",
-    "block1_15",
-    "block2_15",
+    "block1_edge",
+    "block2_edge",
+    "block1",
+    "block2",
     "cal_mark",
 ]
 
@@ -174,10 +174,10 @@ class_names_15type = [
 ]
 
 class_names_18type = [
-    "block1_15",
-    "block1_edge15",
-    "block2_15",
-    "block2_edge15",
+    "block1",
+    "block1_edge",
+    "block2",
+    "block2_edge",
     "cal_mark",
 ]
 
@@ -778,12 +778,13 @@ async def manual_submit(request: Request):
             judgement_color = (0, 0, 255)
 
         # Annotations
-        mid_y = int((y1 + y2) / 2)
+        # Position text above the blue line (block1_edge, which is y1)
+        text_y = y1 - 80  # 80 pixels above block1_edge
         text_x = w // 2 + 250  # Shifted to the right
         cv2.putText(
             image,
             f"{y_diff_microns:.2f} microns (b1-b2)",
-            (text_x - 50, mid_y),
+            (text_x - 50, text_y),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.8,
             (255, 255, 255),
@@ -792,7 +793,7 @@ async def manual_submit(request: Request):
         cv2.putText(
             image,
             f"Judgement: {judgement}",
-            (text_x - 50, mid_y + 40),
+            (text_x - 50, text_y + 40),
             cv2.FONT_HERSHEY_SIMPLEX,
             1.0,
             judgement_color,
@@ -819,7 +820,7 @@ async def manual_submit(request: Request):
         cv2.putText(
             image,
             f"{microns_per_pixel:.2f} um/pixel",
-            (10, 30),
+            (10, 20),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.7,
             (255, 255, 0),
@@ -1063,8 +1064,9 @@ async def index_post(request: Request):
             label = selected_class_names[int(cls.item())]
             logger.info(f"[DEBUG] cls: {cls}, index: {int(cls.item())}, label: {label}")
 
-            # Handle both 15type and 18type labels
-            if label in ["block1_edge15"]:
+            # Handle all item types: 03type, 15type, and 18type
+            # Check for block1_edge variants: "block1_edge", "block1_edge15"
+            if label in ["block1_edge", "block1_edge15"]:
                 edge_y = int(y_center + height / 2)
                 block1_edge_y = edge_y + (BLOCK1_OFFSET / microns_per_pixel)
                 cv2.line(
@@ -1075,7 +1077,8 @@ async def index_post(request: Request):
                     2,
                 )
 
-            elif label in ["block2_edge15"]:
+            # Check for block2_edge variants: "block2_edge", "block2_edge15"
+            elif label in ["block2_edge", "block2_edge15"]:
                 edge_y = int(y_center + height / 2)
                 block2_edge_y = edge_y + (BLOCK2_OFFSET / microns_per_pixel)
                 cv2.line(
@@ -1086,10 +1089,12 @@ async def index_post(request: Request):
                     2,
                 )
 
-            elif label in ["block1_15"]:
+            # Check for block1 body variants: "block1", "block1_15" (but not "block1_edge")
+            elif label in ["block1", "block1_15"]:
                 block1_box_y = int(y_center + height / 2)
 
-            elif label in ["block2_15"]:
+            # Check for block2 body variants: "block2", "block2_15" (but not "block2_edge")
+            elif label in ["block2", "block2_15"]:
                 block2_box_y = int(y_center + height / 2)
 
             elif label == "cal_mark":
@@ -1154,7 +1159,7 @@ async def index_post(request: Request):
         cv2.putText(
             image,
             f"Microns/px: {microns_per_pixel:.2f}",
-            (10, 40),
+            (10, 20),
             cv2.FONT_HERSHEY_SIMPLEX,
             1.0,
             (0, 255, 255),  # Yellow color
@@ -1162,7 +1167,8 @@ async def index_post(request: Request):
         )
         
         text_x = image.shape[1] // 2 + 250  # Shifted to the right
-        text_y = int((block1_edge_y + block2_edge_y) / 2)
+        # Position text above the blue line (block1_edge)
+        text_y = int(block1_edge_y - 80)  # 80 pixels above block1_edge
         cv2.putText(
             image,
             f"{y_diff_microns:.2f} microns",
