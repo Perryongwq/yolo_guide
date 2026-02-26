@@ -24,6 +24,9 @@ import logging
 import uvicorn
 import torch
 import asyncio
+import json
+from sendAlert import sendErrorAlertEmail
+import pandas as pd
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO)
@@ -67,6 +70,8 @@ latest_processing_results = {
     "y_diff_microns": None,
     "judgement": None,
     "processed_timestamp": None,
+    "item_type": None,
+    "pitch": None,
 }
 
 
@@ -181,11 +186,17 @@ class_names_18type = [
     "cal_mark",
 ]
 
+# 21type and 31type use the same class names as 18type
+class_names_21type = class_names_18type
+class_names_31type = class_names_18type
+
 # Store class names in a dictionary for easy access
 class_names = {
     "03type": class_names_03type,
     "15type": class_names_15type,
     "18type": class_names_18type,
+    "21type": class_names_21type,
+    "31type": class_names_31type,
 }
 
 def get_model(item_type: str, pitch: str = "standard") -> YOLO:
@@ -194,7 +205,7 @@ def get_model(item_type: str, pitch: str = "standard") -> YOLO:
     Models are cached after first load for better performance.
     
     Args:
-        item_type: Item type (e.g., "03type", "15type", "18type", "32type")
+        item_type: Item type (e.g., "03type", "15type", "18type", "21type", "31type", "32type")
         pitch: Pitch type (e.g., "standard", "narrow"). Use None or "standard" for types that don't support pitch.
     
     Returns:
@@ -242,6 +253,194 @@ MEASUREMENT_OFFSET_MICRONS = (
     5.0  # Offset to apply to final measurement (e.g., +5 to correct camera calibration)
 )
 judgement_criteria = {"good": 10, "acceptable": 20}
+
+# Email configuration for judgement mismatch alerts
+# Load from config file - raises error if file not found or invalid
+def load_email_config():
+    """
+    Load email configuration from config/email_config.json file.
+    Raises FileNotFoundError if file not found.
+    Raises ValueError if JSON is invalid or required keys are missing.
+    """
+    config_path = os.path.join(BASE_PATH, "config", "email_config.json")
+    required_keys = ["RTO0006", "RTO0010", "RTO0013_01", "RTO0013_02", "RTO0013_03"]
+    
+    if not os.path.exists(config_path):
+        error_msg = f"Email config file not found at {config_path}. Please create config/email_config.json with the required fields."
+        logger.error(error_msg)
+        raise FileNotFoundError(error_msg)
+    
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+    except json.JSONDecodeError as e:
+        error_msg = f"Invalid JSON in email config file {config_path}: {e}"
+        logger.error(error_msg)
+        raise ValueError(error_msg)
+    except Exception as e:
+        error_msg = f"Error reading email config file {config_path}: {e}"
+        logger.error(error_msg)
+        raise ValueError(error_msg)
+    
+    # Validate that all required keys exist
+    missing_keys = [key for key in required_keys if key not in config]
+    if missing_keys:
+        error_msg = f"Missing required keys in email config: {', '.join(missing_keys)}"
+        logger.error(error_msg)
+        raise ValueError(error_msg)
+    
+    logger.info(f"Email config loaded successfully from: {config_path}")
+    return config
+
+# Load email configuration at startup
+try:
+    EMAIL_CONFIG = load_email_config()
+except (FileNotFoundError, ValueError) as e:
+    logger.error(f"Failed to load email configuration: {e}")
+    logger.error("Application cannot start without valid email configuration.")
+    raise
+
+def get_email_config_df():
+    """Get email configuration as DataFrame for sendAlert module"""
+    return pd.DataFrame([EMAIL_CONFIG])
+
+def check_judgement_mismatch(human_judgement: str, ai_judgement: str):
+    """
+    Check for judgement mismatches and return error information.
+    
+    Conditions to alert:
+    1. humanJudgement = NG & AI Judgement = No Good
+    2. humanJudgement = NG & AI Judgement = Good
+    3. humanJudgement = G & AI Judgement = No Good
+    
+    Args:
+        human_judgement: Human judgement value ("G" or "NG")
+        ai_judgement: AI judgement value ("Good", "Acceptable", or "No Good")
+    
+    Returns:
+        dict with keys:
+            - has_mismatch: bool - True if mismatch detected
+            - error_message: str - Error message describing the mismatch, empty if no mismatch
+    """
+    try:
+        # Normalize judgement values for comparison
+        human_judgement_upper = human_judgement.upper().strip() if human_judgement else ""
+        ai_judgement_normalized = ai_judgement.strip() if ai_judgement else ""
+        
+        # Check for the three alert conditions
+        has_mismatch = False
+        error_message = ""
+        
+        if human_judgement_upper == "NG" and ai_judgement_normalized == "No Good":
+            has_mismatch = True
+            error_message = "Judgement Mismatch: Human Judgement (NG) does not match AI Judgement (No Good)"
+        elif human_judgement_upper == "NG" and ai_judgement_normalized == "Good":
+            has_mismatch = True
+            error_message = "Judgement Mismatch: Human Judgement (NG) does not match AI Judgement (Good)"
+        elif human_judgement_upper == "G" and ai_judgement_normalized == "No Good":
+            has_mismatch = True
+            error_message = "Judgement Mismatch: Human Judgement (G) does not match AI Judgement (No Good)"
+        
+        return {
+            "has_mismatch": has_mismatch,
+            "error_message": error_message,
+            "human_judgement": human_judgement,
+            "ai_judgement": ai_judgement
+        }
+    except Exception as e:
+        logger.error(f"Error in check_judgement_mismatch: {e}")
+        return {
+            "has_mismatch": False,
+            "error_message": "",
+            "human_judgement": human_judgement,
+            "ai_judgement": ai_judgement
+        }
+
+def check_and_send_judgement_alert(human_judgement: str, ai_judgement: str, details: dict):
+    """
+    Check for judgement mismatches and send email alerts.
+    
+    Conditions to alert:
+    1. humanJudgement = NG & AI Judgement = No Good
+    2. humanJudgement = NG & AI Judgement = Good
+    3. humanJudgement = G & AI Judgement = No Good
+    
+    Args:
+        human_judgement: Human judgement value ("G" or "NG")
+        ai_judgement: AI judgement value ("Good", "Acceptable", or "No Good")
+        details: Dictionary with additional information (machine_number, username, y_diff, etc.)
+    """
+    try:
+        # Log input values for debugging
+        logger.info(f"[ALERT CHECK] Human Judgement: '{human_judgement}', AI Judgement: '{ai_judgement}'")
+        
+        # Normalize judgement values for comparison
+        human_judgement_upper = human_judgement.upper().strip() if human_judgement else ""
+        ai_judgement_normalized = ai_judgement.strip() if ai_judgement else ""
+        
+        logger.info(f"[ALERT CHECK] Normalized - Human: '{human_judgement_upper}', AI: '{ai_judgement_normalized}'")
+        
+        # Check for the three alert conditions
+        should_alert = False
+        alert_reason = ""
+        
+        if human_judgement_upper == "NG" and ai_judgement_normalized == "No Good":
+            should_alert = True
+            alert_reason = "Human Judgement: NG, AI Judgement: No Good"
+            logger.info(f"[ALERT CHECK] Condition 1 matched: NG & No Good")
+        elif human_judgement_upper == "NG" and ai_judgement_normalized == "Good":
+            should_alert = True
+            alert_reason = "Human Judgement: NG, AI Judgement: Good"
+            logger.info(f"[ALERT CHECK] Condition 2 matched: NG & Good")
+        elif human_judgement_upper == "G" and ai_judgement_normalized == "No Good":
+            should_alert = True
+            alert_reason = "Human Judgement: G, AI Judgement: No Good"
+            logger.info(f"[ALERT CHECK] Condition 3 matched: G & No Good")
+        else:
+            logger.info(f"[ALERT CHECK] No alert condition matched. Human: '{human_judgement_upper}', AI: '{ai_judgement_normalized}'")
+        
+        if should_alert:
+            # Prepare email details
+            email_details = {
+                "Alert Reason": alert_reason,
+                "Machine Number": details.get("machine_number", "N/A"),
+                "Username": details.get("username", "N/A"),
+                "Item Type": details.get("item_type", "N/A"),
+                "Pitch": details.get("pitch", "N/A"),
+                "Y-Difference (microns)": details.get("y_diff", "N/A"),
+                "Image Name": details.get("image_name", "N/A"),
+                "Checked Date and Time": details.get("checked_datetime", "N/A"),
+            }
+            
+            # Send email alert
+            try:
+                emaildf = get_email_config_df()
+                logger.info(f"[ALERT] Email config DataFrame created. Config: {EMAIL_CONFIG}")
+                logger.info(f"[ALERT] Email category in config: '{EMAIL_CONFIG.get('RTO0010', 'NOT FOUND')}'")
+                
+                error_type = f"Judgement Mismatch Alert - {alert_reason}"
+                app_name = "CT600 AI Vision Inspection"
+                
+                logger.info(f"[ALERT] Sending judgement mismatch alert: {alert_reason}")
+                logger.info(f"[ALERT] Using email category: 'judgement_alert'")
+                
+                sendErrorAlertEmail(
+                    emaildf,
+                    "judgement_alert",
+                    error_type,
+                    app_name,
+                    email_details
+                )
+                logger.info(f"[ALERT] Judgement mismatch alert sent successfully")
+            except Exception as email_error:
+                logger.error(f"[ALERT] Error sending email: {email_error}", exc_info=True)
+                raise
+        else:
+            logger.debug(f"No alert needed. Human: {human_judgement}, AI: {ai_judgement}")
+            
+    except Exception as e:
+        logger.error(f"Error in check_and_send_judgement_alert: {e}")
+        # Don't raise exception - we don't want email failures to break the save process
 
 # Camera setup - Initialize as None for lazy loading
 camera = None
@@ -652,11 +851,15 @@ async def save_image(request: Request):
         # Get the latest processing results
         y_diff = latest_processing_results.get("y_diff_microns", "N/A")
         judgement = latest_processing_results.get("judgement", "N/A")
+        item_type = latest_processing_results.get("item_type", "N/A")
+        pitch = latest_processing_results.get("pitch", "N/A")
 
         # Prepare new row with all required information
         new_row = {
             "Username": username,
             "Image Name": image_filename,
+            "Item Type": item_type,
+            "Pitch": pitch,
             "Y-Difference (microns)": y_diff,
             "AI Judgement": judgement,
             "Checked Date and Time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -692,12 +895,55 @@ async def save_image(request: Request):
                 status_code=500, detail=f"Failed to save to Excel: {str(e)}"
             )
 
-        return {
+        # Check for judgement mismatches and send email alerts
+        judgement_mismatch_info = None
+        try:
+            logger.info(f"[SAVE-IMAGE] Checking alert conditions - Human: '{human_judgement}', AI: '{judgement}'")
+            alert_details = {
+                "machine_number": machine_number.upper(),
+                "username": username,
+                "item_type": item_type,
+                "pitch": pitch,
+                "y_diff": y_diff,
+                "image_name": image_filename,
+                "checked_datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            }
+            check_and_send_judgement_alert(human_judgement, judgement, alert_details)
+            
+            # Check for judgement mismatch to include in response
+            judgement_mismatch_info = check_judgement_mismatch(human_judgement, judgement)
+        except Exception as e:
+            logger.error(f"Failed to send judgement alert: {e}", exc_info=True)
+            # Don't fail the save operation if alert fails
+            # Still check for mismatch even if alert failed
+            try:
+                judgement_mismatch_info = check_judgement_mismatch(human_judgement, judgement)
+            except Exception as check_error:
+                logger.error(f"Failed to check judgement mismatch: {check_error}")
+
+        # Prepare response
+        response_data = {
             "success": True,
             "message": "Image and result saved!",
             "excel_path": excel_path,
             "image_path": image_path,
+            "judgement": judgement,
+            "human_judgement": human_judgement,
         }
+        
+        # Add judgement mismatch information if there is a mismatch
+        if judgement_mismatch_info and judgement_mismatch_info.get("has_mismatch", False):
+            response_data["judgement_mismatch"] = {
+                "has_error": True,
+                "error_message": judgement_mismatch_info.get("error_message", ""),
+            }
+        else:
+            response_data["judgement_mismatch"] = {
+                "has_error": False,
+                "error_message": "",
+            }
+        
+        return response_data
 
     except HTTPException:
         raise
@@ -837,6 +1083,8 @@ async def manual_submit(request: Request):
             "y_diff_microns": round(y_diff_microns, 2),
             "judgement": judgement,
             "processed_timestamp": current_datetime,
+            "item_type": "Manual",  # Manual submission doesn't have item_type
+            "pitch": "N/A",  # Manual submission doesn't have pitch
         }
         logger.info(f"Stored processing results: {latest_processing_results}")
 
@@ -1023,7 +1271,7 @@ async def index_post(request: Request):
             pitch = None  # 32type doesn't use pitch
         
         # Validate pitch for types that require it
-        if item_type in ["03type", "15type", "18type"]:
+        if item_type in ["03type", "15type", "18type", "21type", "31type"]:
             if pitch not in ["standard", "narrow"]:
                 logger.warning(f"Invalid pitch: {pitch} for {item_type}, defaulting to standard")
                 pitch = "standard"
@@ -1064,7 +1312,7 @@ async def index_post(request: Request):
             label = selected_class_names[int(cls.item())]
             logger.info(f"[DEBUG] cls: {cls}, index: {int(cls.item())}, label: {label}")
 
-            # Handle all item types: 03type, 15type, and 18type
+            # Handle all item types: 03type, 15type, 18type, 21type, and 31type
             # Check for block1_edge variants: "block1_edge", "block1_edge15"
             if label in ["block1_edge", "block1_edge15"]:
                 edge_y = int(y_center + height / 2)
@@ -1210,6 +1458,8 @@ async def index_post(request: Request):
             "processed_timestamp": current_datetime,
             "microns_per_pixel": round(microns_per_pixel, 2),
             "calibration_marker_width_px": round(calibration_marker_width_px, 2),
+            "item_type": item_type,
+            "pitch": pitch,
         }
         logger.info(f"Stored processing results: {latest_processing_results}")
 

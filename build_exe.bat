@@ -1,12 +1,13 @@
 @echo off
 REM ============================================================================
-REM CT600 Vision Inspection System - Build Script
+REM CT600 AI Vision Inspection System - Build Script
 REM Creates a standalone Windows executable using PyInstaller
+REM Includes email alert functionality and configurable email settings
 REM ============================================================================
 
 echo.
 echo ========================================================================
-echo CT600 Vision Inspection System - Executable Build Script
+echo CT600 AI Vision Inspection System - Executable Build Script
 echo ========================================================================
 echo.
 
@@ -81,6 +82,12 @@ if exist dist\CT600_Vision_System\_internal\models (
     xcopy /E /I /Y dist\CT600_Vision_System\_internal\models dist\CT600_Vision_System\models
 )
 
+REM Copy config folder to root level (app_fastapi.py expects config/ at executable directory level)
+echo Copying config folder to distribution root...
+if exist dist\CT600_Vision_System\_internal\config (
+    xcopy /E /I /Y dist\CT600_Vision_System\_internal\config dist\CT600_Vision_System\config
+)
+
 REM Create runtime directories in dist root (app_fastapi.py uses get_base_path() which returns executable directory)
 echo Creating runtime directories in distribution root...
 if not exist dist\CT600_Vision_System\uploads mkdir dist\CT600_Vision_System\uploads
@@ -97,14 +104,21 @@ echo.
 echo File Structure:
 echo   dist\CT600_Vision_System\
 echo   ├── CT600_Vision_System.exe        (Main executable)
-echo   ├── models\                        (YOLO model - copied from _internal)
-echo   │   └── 15type_model.pt
+echo   ├── models\                        (YOLO models - copied from _internal)
+echo   │   ├── 03_standard_model.pt
+echo   │   ├── 15standard_model.pt
+echo   │   ├── 18standard_model.pt
+echo   │   └── [other model files]
+echo   ├── config\                        (Email configuration - REQUIRED)
+echo   │   ├── email_config.json          (Must be configured before use)
+echo   │   └── README.md
 echo   ├── uploads\                       (Runtime data - writable)
 echo   ├── processed\                     (Runtime data - writable)
 echo   ├── results\                       (Runtime data - writable)
 echo   └── _internal\                     (Python runtime ^& bundled code)
 echo       ├── backend\
-echo       │   └── app_fastapi.py
+echo       │   ├── app_fastapi.py
+echo       │   └── sendAlert.py
 echo       └── frontend\
 echo           ├── templates\
 echo           ├── static\
@@ -128,6 +142,20 @@ echo   - 2GB free disk space
 echo.
 echo NOTE: Results will be saved to results\[machine]\
 echo       NOT in _internal\ folder
+echo.
+echo IMPORTANT: Email Configuration
+echo   - The config\email_config.json file MUST be configured before use
+echo   - Update email addresses in config\email_config.json
+echo   - Application will NOT start without valid email configuration
+echo   - Email alerts are sent for judgement mismatches:
+echo     * Human: NG ^& AI: No Good
+echo     * Human: NG ^& AI: Good
+echo     * Human: G ^& AI: No Good
+echo.
+echo Features:
+echo   - Supports item types: 03type, 15type, 18type, 21type, 31type, 32type
+echo   - Excel exports include: Item Type, Pitch, Y-Difference, Judgements
+echo   - Email alerts include: Item Type, Pitch, Machine Number, Username
 echo.
 echo ========================================================================
 echo.
