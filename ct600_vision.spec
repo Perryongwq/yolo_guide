@@ -1,7 +1,8 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
-CT600 Vision Inspection System - PyInstaller Spec File
+CT600 AI Vision Inspection System - PyInstaller Spec File
 Builds a standalone Windows executable with all dependencies.
+Includes email alert functionality and configurable email settings.
 """
 
 import sys
@@ -66,7 +67,9 @@ hiddenimports += matplotlib_hiddenimports
 datas += [
     ('backend/models', 'models'),  # Copy to root level to match app_fastapi.py expectations
     ('backend/calibration', 'backend/calibration'),
+    ('backend/config', 'config'),  # Email configuration folder
     ('backend/app_fastapi.py', 'backend'),
+    ('backend/sendAlert.py', 'backend'),  # Email alert module
 ]
 
 # Frontend files
@@ -87,6 +90,7 @@ hiddenimports += collect_submodules('jose')
 hiddenimports += [
     'app_fastapi',
     'app',
+    'sendAlert',  # Email alert module
     'configreader.configreader',
     'commons.config_utilities',
     'util.utilfunc',
@@ -114,6 +118,10 @@ hiddenimports += [
     'jose.jwt',
     'jose.constants',
     'jose.exceptions',
+    'smtplib',  # Required for sendAlert
+    'email.mime.text',
+    'email.mime.multipart',
+    'email.message',
 ]
 
 a = Analysis(
