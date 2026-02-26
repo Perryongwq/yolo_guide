@@ -504,6 +504,8 @@
               <option value="03type">03 Type</option>
               <option value="15type" selected>15 Type</option>
               <option value="18type">18 Type</option>
+              <option value="21type">21 Type</option>
+              <option value="31type">31 Type</option>
               <option value="32type">32 Type</option>
             </select>
           </div>
@@ -663,8 +665,8 @@
   // Function to toggle pitch selection visibility based on item type
   function updatePitchSelectionVisibility() {
     const itemType = itemTypeSelect.value;
-    // Show pitch selection for 03, 15, 18 types, hide for 32type
-    if (itemType === "03type" || itemType === "15type" || itemType === "18type") {
+    // Show pitch selection for 03, 15, 18, 21, 31 types, hide for 32type
+    if (itemType === "03type" || itemType === "15type" || itemType === "18type" || itemType === "21type" || itemType === "31type") {
       pitchSelectionGroup.style.display = "flex";
     } else {
       pitchSelectionGroup.style.display = "none";
@@ -712,7 +714,7 @@
   // Helper function to submit image directly for processing
   function submitImageForProcessing(imageDataUrl, fromCameraCapture = false) {
     const itemType = document.querySelector('select[name="item_type"]').value;
-    const pitch = (itemType === "03type" || itemType === "15type" || itemType === "18type") 
+    const pitch = (itemType === "03type" || itemType === "15type" || itemType === "18type" || itemType === "21type" || itemType === "31type") 
       ? document.querySelector('select[name="pitch"]').value 
       : "standard";
     latestAlignedImageData = imageDataUrl;
@@ -996,7 +998,7 @@
     const alignedImage = alignCanvas.toDataURL();
     latestAlignedImageData = alignedImage;
     const itemType = document.querySelector('select[name="item_type"]').value;
-    const pitch = (itemType === "03type" || itemType === "15type" || itemType === "18type") 
+    const pitch = (itemType === "03type" || itemType === "15type" || itemType === "18type" || itemType === "21type" || itemType === "31type") 
       ? document.querySelector('select[name="pitch"]').value 
       : "standard";
 
@@ -1151,7 +1153,17 @@
       .then(response => response.json())
       .then(data => {
         if (data.success) {
-          alert("✅ Image saved successfully!");
+          let alertMessage = "✅ Image saved successfully!";
+          
+          // Check for judgement mismatch
+          if (data.judgement_mismatch && data.judgement_mismatch.has_error) {
+            alertMessage += "\n\n⚠️ " + data.judgement_mismatch.error_message;
+            alertMessage += "\n\nAI Judgement: " + (data.judgement || "N/A");
+            alertMessage += "\nHuman Judgement: " + (data.human_judgement || "N/A");
+          }
+          
+          alert(alertMessage);
+          
           // Reset form
           document.getElementById("machineNumber").value = "";
           document.getElementById("humanJudgement").value = "";
