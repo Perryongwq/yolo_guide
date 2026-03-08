@@ -211,10 +211,15 @@ def get_model(item_type: str, pitch: str = "standard") -> YOLO:
     Returns:
         YOLO model instance
     """
-    # For types that don't support pitch (e.g., 32type), use item_type only
-    if item_type == "32type" or pitch is None:
+    # For types that don't support pitch (e.g., 32type, 03type), use item_type only
+    if item_type in ["32type", "03type"] or pitch is None:
         model_key = item_type
-        model_filename = "32type_model.pt"
+        # For 03type, try both "03type_model.pt" and "03standard_model.pt" formats
+        if item_type == "03type":
+            # First try the simple format
+            model_filename = "03type_model.pt"
+        else:
+            model_filename = "32type_model.pt"
     else:
         # For types that support pitch, construct key and filename
         model_key = f"{item_type}_{pitch}"
@@ -230,6 +235,16 @@ def get_model(item_type: str, pitch: str = "standard") -> YOLO:
     # Load model
     model_path = os.path.join(MODELS_DIR, model_filename)
     
+    # For 03type, try alternative filename if first one doesn't exist
+    if item_type == "03type" and not os.path.exists(model_path):
+        # Try the pitch-based format as fallback
+        alternative_filename = "03standard_model.pt"
+        alternative_path = os.path.join(MODELS_DIR, alternative_filename)
+        if os.path.exists(alternative_path):
+            logger.info(f"03type model not found at {model_path}, trying alternative: {alternative_path}")
+            model_path = alternative_path
+            model_filename = alternative_filename
+    
     if not os.path.exists(model_path):
         logger.error(f"Model file not found at {model_path}")
         raise FileNotFoundError(
@@ -238,6 +253,12 @@ def get_model(item_type: str, pitch: str = "standard") -> YOLO:
     
     logger.info(f"Loading YOLO model from: {model_path}")
     model = YOLO(model_path)
+    
+    # Log the actual class names from the model for debugging
+    if hasattr(model, 'names') and model.names:
+        model_class_names = [model.names[i] for i in sorted(model.names.keys())]
+        logger.info(f"Model's actual class names: {model_class_names}")
+        logger.info(f"Model's class count: {len(model_class_names)}")
     
     # Cache the loaded model
     loaded_models[model_key] = model
@@ -1266,12 +1287,12 @@ async def index_post(request: Request):
             )
 
         # Validate item_type and get the appropriate model and class names
-        # For types that don't support pitch (e.g., 32type), ignore pitch parameter
-        if item_type == "32type":
-            pitch = None  # 32type doesn't use pitch
+        # For types that don't support pitch (e.g., 32type, 03type), ignore pitch parameter
+        if item_type in ["32type", "03type"]:
+            pitch = None  # These types don't use pitch
         
         # Validate pitch for types that require it
-        if item_type in ["03type", "15type", "18type", "21type", "31type"]:
+        if item_type in ["15type", "18type", "21type", "31type"]:
             if pitch not in ["standard", "narrow"]:
                 logger.warning(f"Invalid pitch: {pitch} for {item_type}, defaulting to standard")
                 pitch = "standard"
@@ -1284,8 +1305,8 @@ async def index_post(request: Request):
         
         # Get the model using lazy loading
         try:
-            # For 32type, don't pass pitch (or pass None)
-            if item_type == "32type":
+            # For types that don't use pitch (32type, 03type), don't pass pitch (or pass None)
+            if item_type in ["32type", "03type"]:
                 selected_model = get_model(item_type, None)
             else:
                 selected_model = get_model(item_type, pitch)
@@ -1296,7 +1317,29 @@ async def index_post(request: Request):
             logger.error(f"Error loading model: {e}")
             raise HTTPException(status_code=500, detail=f"Error loading model: {str(e)}")
         
-        selected_class_names = class_names[item_type]
+        # Get class names - prefer model's actual class names, fallback to our mapping
+        selected_class_names = class_names.get(item_type, [])
+        
+        # Get actual class names from the model if available
+        if hasattr(selected_model, 'names') and selected_model.names:
+            model_class_names = [selected_model.names[i] for i in sorted(selected_model.names.keys())]
+            logger.info(f"Model's actual class names: {model_class_names}")
+            
+            # Check if our mapping matches the model's class names
+            if selected_class_names and selected_class_names != model_class_names:
+                logger.warning(f"Class name mismatch for {item_type}!")
+                logger.warning(f"  Expected (from mapping): {selected_class_names}")
+                logger.warning(f"  Actual (from model): {model_class_names}")
+                logger.warning(f"  Using model's actual class names for processing")
+                # Use model's actual class names
+                selected_class_names = model_class_names
+            elif not selected_class_names:
+                # No mapping found, use model's class names
+                logger.info(f"No class name mapping for {item_type}, using model's class names")
+                selected_class_names = model_class_names
+        else:
+            logger.warning(f"Model does not have class names attribute, using mapping: {selected_class_names}")
+        
         logger.info(f"Using model: {item_type} with pitch: {pitch}, class names: {selected_class_names}")
 
         # YOLO prediction
@@ -1307,48 +1350,20 @@ async def index_post(request: Request):
         calibration_marker_width_px = None
         microns_per_pixel = MICRONS_PER_PIXEL
 
+        # First pass: Find calibration marker to calculate microns_per_pixel (matching PyQt5 code)
         for box, cls in zip(results[0].boxes.xywh, results[0].boxes.cls):
             x_center, y_center, width, height = box
             label = selected_class_names[int(cls.item())]
-            logger.info(f"[DEBUG] cls: {cls}, index: {int(cls.item())}, label: {label}")
+            
+            if label == "cal_mark":
+                # Convert to scalar if it's a numpy array/tensor (matching PyQt5 code)
+                if hasattr(width, 'item'):
+                    calibration_marker_width_px = width.item()
+                else:
+                    calibration_marker_width_px = float(width)
+                break  # Found calibration marker
 
-            # Handle all item types: 03type, 15type, 18type, 21type, and 31type
-            # Check for block1_edge variants: "block1_edge", "block1_edge15"
-            if label in ["block1_edge", "block1_edge15"]:
-                edge_y = int(y_center + height / 2)
-                block1_edge_y = edge_y + (BLOCK1_OFFSET / microns_per_pixel)
-                cv2.line(
-                    image,
-                    (int(x_center - 150), edge_y),
-                    (int(x_center + 150), edge_y),
-                    (255, 0, 0),
-                    2,
-                )
-
-            # Check for block2_edge variants: "block2_edge", "block2_edge15"
-            elif label in ["block2_edge", "block2_edge15"]:
-                edge_y = int(y_center + height / 2)
-                block2_edge_y = edge_y + (BLOCK2_OFFSET / microns_per_pixel)
-                cv2.line(
-                    image,
-                    (int(x_center - 150), edge_y),
-                    (int(x_center + 150), edge_y),
-                    (0, 255, 255),
-                    2,
-                )
-
-            # Check for block1 body variants: "block1", "block1_15" (but not "block1_edge")
-            elif label in ["block1", "block1_15"]:
-                block1_box_y = int(y_center + height / 2)
-
-            # Check for block2 body variants: "block2", "block2_15" (but not "block2_edge")
-            elif label in ["block2", "block2_15"]:
-                block2_box_y = int(y_center + height / 2)
-
-            elif label == "cal_mark":
-                calibration_marker_width_px = width.item()
-
-        # Calibration check
+        # Calculate microns per pixel from calibration marker if detected (matching PyQt5 code)
         if calibration_marker_width_px:
             microns_per_pixel = 1000.0 / calibration_marker_width_px
             logger.info(
@@ -1368,12 +1383,55 @@ async def index_post(request: Request):
                     "reason": "Microns per pixel too high, suggesting focus adjustment",
                 }
         else:
-            logger.warning("cal_mark not detected")
+            logger.warning(f"cal_mark not detected, using default: {microns_per_pixel:.2f} um/pixel")
             return {
                 "error": True,
                 "error_message": "Fail to capture work guide and insertion guide",
                 "reason": "cal_mark not detected",
             }
+
+        # Second pass: Calculate edge positions using calibrated microns_per_pixel (matching PyQt5 code)
+        for box, cls in zip(results[0].boxes.xywh, results[0].boxes.cls):
+            x_center, y_center, width, height = box
+            label = selected_class_names[int(cls.item())]
+            logger.info(f"[DEBUG] cls: {cls}, index: {int(cls.item())}, label: {label}")
+
+            # Handle all item types: 03type, 15type, 18type, 21type, and 31type
+            # Check for block1_edge variants: "block1_edge", "block1_edge15"
+            if label in ["block1_edge", "block1_edge15"]:
+                edge_y = int(y_center + height / 2)
+                # Apply offset and store edge position using calibrated microns_per_pixel (matching PyQt5 code)
+                block1_edge_y = edge_y + (BLOCK1_OFFSET / microns_per_pixel)
+                # Draw longer line from x_center - 300 to x_center + 300 (matching PyQt5 code)
+                cv2.line(
+                    image,
+                    (int(x_center - 300), edge_y),
+                    (int(x_center + 300), edge_y),
+                    (255, 0, 0),  # Red in BGR (matching PyQt5 code)
+                    2,
+                )
+
+            # Check for block2_edge variants: "block2_edge", "block2_edge15"
+            elif label in ["block2_edge", "block2_edge15"]:
+                edge_y = int(y_center + height / 2)
+                # Apply offset and store edge position using calibrated microns_per_pixel (matching PyQt5 code)
+                block2_edge_y = edge_y + (BLOCK2_OFFSET / microns_per_pixel)
+                # Draw longer line from x_center - 300 to x_center + 300 (matching PyQt5 code)
+                cv2.line(
+                    image,
+                    (int(x_center - 300), edge_y),
+                    (int(x_center + 300), edge_y),
+                    (0, 255, 255),  # Cyan in BGR (matching PyQt5 code)
+                    2,
+                )
+
+            # Check for block1 body variants: "block1", "block1_15" (but not "block1_edge")
+            elif label in ["block1", "block1_15"]:
+                block1_box_y = int(y_center + height / 2)
+
+            # Check for block2 body variants: "block2", "block2_15" (but not "block2_edge")
+            elif label in ["block2", "block2_15"]:
+                block2_box_y = int(y_center + height / 2)
 
         # Check if both edge positions are available
         if block1_edge_y is None or block2_edge_y is None:
@@ -1403,33 +1461,40 @@ async def index_post(request: Request):
             judgement_color = (0, 0, 255)
 
         # Add annotations
-        # Display microns/px on top left
+        # Display microns per pixel on image (top left) - matching PyQt5 format
+        cal_text = f"{microns_per_pixel:.2f} um/pixel"
         cv2.putText(
             image,
-            f"Microns/px: {microns_per_pixel:.2f}",
-            (10, 20),
+            cal_text,
+            (10, 30),
             cv2.FONT_HERSHEY_SIMPLEX,
-            1.0,
-            (0, 255, 255),  # Yellow color
+            0.7,
+            (255, 255, 0),  # Yellow in BGR (matching PyQt5 code)
             2,
         )
         
-        text_x = image.shape[1] // 2 + 250  # Shifted to the right
-        # Position text above the blue line (block1_edge)
-        text_y = int(block1_edge_y - 80)  # 80 pixels above block1_edge
+        # Calculate position for text (between the two edges) - matching PyQt5 code
+        text_x = image.shape[1] // 2 + 250
+        text_y = int((block1_edge_y + block2_edge_y) / 2)
+        
+        # Draw Y-difference measurement first (at top) - shifted up by 100 pixels
+        diff_text = f"{y_diff_microns:.2f} microns"
         cv2.putText(
             image,
-            f"{y_diff_microns:.2f} microns",
-            (text_x + 300, text_y),
+            diff_text,
+            (text_x - 100, text_y - 100),
             cv2.FONT_HERSHEY_SIMPLEX,
-            1.0,
+            0.8,
             (255, 255, 255),
             2,
         )
+        
+        # Draw judgment text below Y-difference - matching PyQt5 code
+        judgment_text = f"Judgment: {judgement}"
         cv2.putText(
             image,
-            f"Judgement: {judgement}",
-            (text_x + 300, text_y + 40),
+            judgment_text,
+            (text_x - 100, text_y - 60),
             cv2.FONT_HERSHEY_SIMPLEX,
             1.0,
             judgement_color,
