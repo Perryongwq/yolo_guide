@@ -1075,6 +1075,7 @@ async def manual_submit(request: Request):
             (255, 255, 255),
             3,
         )
+        mid_y = (y1 + y2) // 2
         cv2.putText(
             image,
             "Manual Judgement",
