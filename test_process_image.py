@@ -15,7 +15,7 @@ MEASUREMENT_OFFSET_MICRONS = 5.0
 judgment_criteria = {"good": 10, "acceptable": 20}
 
 # Custom display time as requested
-DISPLAY_DATETIME = "2026-02-03 20:05:04"
+DISPLAY_DATETIME = "2026-03-17 18:23:19"
 # DISPLAY_DATETIME = "2026-02-03 20:09:46"
 # Get base path
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -24,10 +24,10 @@ BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 BACKEND_PATH = os.path.join(BASE_PATH, "backend")
 MODELS_DIR = os.path.join(BACKEND_PATH, "models")
 MODEL_15TYPE_PATH = os.path.join(MODELS_DIR, "15standard_model.pt")
-MODEL_18TYPE_PATH = os.path.join(MODELS_DIR, "18standard_model_10_02_26_M.pt")
+MODEL_18TYPE_PATH = os.path.join(MODELS_DIR, "03standard_model.pt")
 testimages_path = os.path.join(BASE_PATH, "testimages")
-TEST_IMAGE_PATH = os.path.join(testimages_path, "0008.png")
-OUTPUT_PATH = os.path.join(BASE_PATH, "test_output6.png")
+TEST_IMAGE_PATH = os.path.join(testimages_path, "0022.png")
+OUTPUT_PATH = os.path.join(BASE_PATH, "test_output1.png")
 
 # Class names for each model type
 class_names_15type = [
@@ -200,11 +200,11 @@ def process_image(image_path: str, item_type: str = "15type") -> dict:
         )
         cv2.putText(
             image,
-            f"Microns/px:{microns_per_pixel:.2f}",
+            f"{microns_per_pixel:.2f} um/px",
             (10, 20),
             cv2.FONT_HERSHEY_SIMPLEX,
             1.0,
-            (0, 255, 255),  # Yellow in BGR
+            (255, 255, 128),  # Light blue/cyan in BGR
             2,
         )
         cv2.putText(
@@ -283,11 +283,11 @@ def process_image(image_path: str, item_type: str = "15type") -> dict:
     )
     cv2.putText(
         image,
-        f"Microns/px:{microns_per_pixel:.2f}",
+        f"{microns_per_pixel:.2f} um/px",
         (10, 20),
         cv2.FONT_HERSHEY_SIMPLEX,
         1.0,
-        (0, 255, 255),  # Yellow in BGR
+        (255, 255, 128),  # Light blue/cyan in BGR
         2,
     )
     

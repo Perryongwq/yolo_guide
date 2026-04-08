@@ -1416,12 +1416,14 @@ async def index_post(request: Request):
                 edge_y = int(y_center + height / 2)
                 # Apply offset and store edge position using calibrated microns_per_pixel (matching PyQt5 code)
                 block2_edge_y = edge_y + (BLOCK2_OFFSET / microns_per_pixel)
-                # Draw longer line from x_center - 300 to x_center + 300 (matching PyQt5 code)
+                # For 31type, shift the yellow line 100 pixels to the left
+                line_x_center = int(x_center - 100) if item_type == "31type" else int(x_center)
+                # Draw longer line from line_x_center - 300 to line_x_center + 300 (matching PyQt5 code)
                 cv2.line(
                     image,
-                    (int(x_center - 300), edge_y),
-                    (int(x_center + 300), edge_y),
-                    (0, 255, 255),  # Cyan in BGR (matching PyQt5 code)
+                    (line_x_center - 300, edge_y),
+                    (line_x_center + 300, edge_y),
+                    (0, 255, 255),  # Yellow in BGR (matching PyQt5 code)
                     2,
                 )
 
